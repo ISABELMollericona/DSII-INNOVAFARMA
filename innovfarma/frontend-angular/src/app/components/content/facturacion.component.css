@@ -1,0 +1,243 @@
+/* FACTURACIÓN - ESTILOS GENERALES */
+
+:host {
+  display: block;
+  width: 100%;
+}
+
+/* Estilos de tablas */
+.table-hover tbody tr:hover {
+  background-color: #f0f0f0;
+  cursor: pointer;
+}
+
+.table-sm td, .table-sm th {
+  padding: 0.3rem;
+}
+
+/* Barra de búsqueda */
+.form-select-sm, .form-control-sm {
+  font-size: 0.875rem;
+}
+
+/* Encabezados pegajosos */
+thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+/* Botones de cantidad */
+.btn-restar, .btn-sumar {
+  padding: 0.15rem 0.4rem !important;
+  font-size: 0.75rem;
+}
+
+/* Estilos del modal */
+.modal-content {
+  border: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+  border-bottom: 1.5px solid #29b6f6 !important;
+}
+
+.modal-footer {
+  border-top: 1.5px solid #29b6f6 !important;
+}
+
+/* Inputs sin borde inferior */
+.border-0.border-bottom {
+  border-bottom: 1px solid #ddd !important;
+  border-radius: 0 !important;
+}
+
+.border-0.border-bottom:focus {
+  border-bottom-color: #29b6f6 !important;
+  box-shadow: none;
+}
+
+/* Total grande */
+#total-bs {
+  font-size: 1.8rem;
+  color: #1a3c34;
+  font-weight: 700;
+}
+
+/* Botones del pie de página */
+.btn-outline-light {
+  color: #fff;
+  border-color: #fff;
+  background-color: transparent;
+}
+
+.btn-outline-light:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.btn-info {
+  background-color: #20C997 !important;
+  border-color: #20C997 !important;
+  color: #fff;
+}
+
+.btn-info:hover {
+  background-color: #1aa179 !important;
+  border-color: #1aa179 !important;
+}
+
+/* Validaciones de inputs */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type=number] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .d-flex.flex-column.flex-md-row {
+    flex-direction: column !important;
+  }
+
+  .btn-lg {
+    width: 100%;
+  }
+}
+
+/* Estilos específicos para números en tablas */
+td:last-child {
+  text-align: right;
+}
+
+/* Colores de estados */
+.table-success {
+  background-color: #d4edda;
+}
+
+.table-danger {
+  background-color: #f8d7da;
+}
+
+.table-warning {
+  background-color: #fff3cd;
+}
+
+/* Sobreescribir Bootstrap para mejor contraste */
+.btn-danger:hover {
+  background-color: #c82333;
+}
+
+/* Estilos para inputs en modal */
+.modal-body input {
+  font-size: 0.9rem;
+}
+
+.modal-body .form-label {
+  font-weight: 500;
+}
+
+/* Scroll suave */
+* {
+  scroll-behavior: smooth;
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal.show .modal-content {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Estilos para el badge de cantidad */
+.badge {
+  padding: 0.35em 0.65em;
+  font-size: 0.75em;
+  font-weight: 700;
+}
+
+/* Estilos para tablas responsivas */
+@media (max-width: 992px) {
+  .table-sm {
+    font-size: 0.8rem;
+  }
+
+  th, td {
+    padding: 0.25rem !important;
+  }
+}
+
+/* Estilos para inputs de cantidad */
+.input-cantidad {
+  width: 60px;
+  text-align: center;
+  font-weight: 600;
+}
+
+/* Estado activo de botones radio */
+.form-check-input:checked {
+  background-color: #007bff;
+  border-color: #007bff;
+}
+
+.form-check-input:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* Estilos de validación */
+.was-validated .form-control:valid {
+  border-color: #28a745;
+}
+
+.was-validated .form-control:valid:focus {
+  border-color: #28a745;
+  box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+}
+
+/* Estilos para el cambio */
+#modal-cambio {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background-color: #e8f5e9;
+  border-radius: 4px;
+}
+
+/* Estilos para tablas con cabecera pegajosa */
+.table thead th {
+  background-position: right calc(0.75rem + 0.325rem) center;
+  background-repeat: no-repeat;
+  background-size: calc(0.75em + 0.325rem) calc(0.75em + 0.325rem);
+  padding-right: calc(0.75rem + 1.325rem);
+}
+
+/* Estilos para la fila de totales */
+.totales-row {
+  background-color: #f0f0f0;
+  font-weight: 600;
+  border-top: 2px solid #ddd;
+}
+
+/* Estilos para inputs de pago */
+.pago-input {
+  text-align: right;
+  font-weight: 600;
+}
+
+/* Estilos para modal de error */
+.modal-header.bg-danger {
+  background-color: #dc3545 !important;
+}

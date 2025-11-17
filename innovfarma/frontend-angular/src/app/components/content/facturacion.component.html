@@ -1,0 +1,282 @@
+<div class="w-100 p-0" style="background:#f8f9fa;">
+  <!-- SECCIÓN 1: BÚSQUEDA Y TABLA DE PRODUCTOS -->
+  <div class="row m-0">
+    <div class="col-12 p-0">
+      <!-- Barra de búsqueda -->
+      <div class="d-flex align-items-center" style="background:#e3f2fd; padding:8px 12px;">
+        <select class="form-select form-select-sm me-2" style="max-width:180px;">
+          <option>Todos los productos</option>
+        </select>
+        <input type="text" [(ngModel)]="filtroSearchProducto" class="form-control form-control-sm me-2" placeholder="Buscar otro" style="max-width:220px;">
+        <input type="text" [(ngModel)]="filtroCodigoBarras" class="form-control form-control-sm" placeholder="Código de barras... (F9)" style="max-width:180px;">
+      </div>
+
+      <!-- Tabla de Productos -->
+      <div style="overflow-x:auto; width:100%; max-height:40vh; overflow-y:auto;">
+        <table id="tablaProductos" class="table table-sm table-bordered table-hover mb-0" style="font-size:14px; background:#fff; min-width:900px;">
+          <thead style="background:#4dd0e1; color:#222; position:sticky; top:0; z-index:2;">
+            <tr>
+              <th style="width:40px; background:#4dd0e1; position:sticky; top:0; z-index:3;">Código</th>
+              <th style="background:#4dd0e1; position:sticky; top:0;">Nombre Comercial</th>
+              <th style="background:#4dd0e1; position:sticky; top:0;">Nombre Genérico</th>
+              <th style="background:#4dd0e1; position:sticky; top:0;">Forma Farmacéutica</th>
+              <th style="background:#4dd0e1; position:sticky; top:0;">Concentración</th>
+              <th style="background:#4dd0e1; position:sticky; top:0;">Acción Terapéutica</th>
+              <th style="background:#4dd0e1; position:sticky; top:0;">Presentación</th>
+              <th style="background:#4dd0e1; position:sticky; top:0;">Laboratorio</th>
+              <th style="background:#4dd0e1; position:sticky; top:0;">Precio Venta</th>
+              <th style="background:#4dd0e1; position:sticky; top:0;">Existencia</th>
+              <th style="background:#4dd0e1; position:sticky; top:0;">Vencimiento</th>
+              <th style="background:#4dd0e1; position:sticky; top:0;">Días Vencimiento</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let prod of obtenerProductosFiltrados()" (dblclick)="agregarAlDetalle(prod)" style="cursor:pointer;">
+              <td>{{ prod.codigo }}</td>
+              <td>{{ prod.nombre_comercial }}</td>
+              <td>{{ prod.nombre_generico }}</td>
+              <td>{{ prod.forma_farmaceutica }}</td>
+              <td>{{ prod.concentracion }}</td>
+              <td>{{ prod.accion_terapeutica }}</td>
+              <td>{{ prod.presentacion }}</td>
+              <td>{{ prod.laboratorio }}</td>
+              <td>{{ prod.precio_venta | number:'1.2-2' }}</td>
+              <td>{{ prod.existencia }}</td>
+              <td>{{ prod.vencimiento }}</td>
+              <td>{{ prod.dias_vencimiento }}</td>
+            </tr>
+            <tr *ngIf="obtenerProductosFiltrados().length === 0">
+              <td colspan="12" class="text-center text-muted">No hay productos que coincidan con la búsqueda</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECCIÓN 2: DETALLE DE VENTA -->
+  <div class="row m-0 mt-2">
+    <div class="col-12 p-0">
+      <div class="mt-2" style="background:#29b6f6; color:#fff; padding:6px 12px; font-weight:600;">Detalle de Venta</div>
+      <div style="overflow-x:auto; width:100%;">
+        <table id="tabla-detalle" class="table table-sm table-bordered mb-0" style="font-size:14px; background:#fff; min-width:900px;">
+          <thead style="background:#b3e5fc; color:#222;">
+            <tr>
+              <th>Código</th>
+              <th>Nombre Comercial</th>
+              <th>Forma Farmacéutica</th>
+              <th>Concentración</th>
+              <th>Laboratorio</th>
+              <th>Cantidad</th>
+              <th>Precio Unit.</th>
+              <th>Sub Total</th>
+              <th>Vencimiento</th>
+              <th>Existencia</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let prod of detalleVenta; let idx = index">
+              <td>{{ prod.codigo }}</td>
+              <td>{{ prod.nombre_comercial }}</td>
+              <td>{{ prod.forma_farmaceutica }}</td>
+              <td>{{ prod.concentracion }}</td>
+              <td>{{ prod.laboratorio }}</td>
+              <td class="text-center">
+                <button class="btn btn-sm btn-outline-secondary btn-restar" (click)="restarCantidad(idx)" style="padding:0 6px;">−</button>
+                <span style="margin:0 8px; font-weight:600;">{{ prod.cantidad }}</span>
+                <button class="btn btn-sm btn-outline-secondary btn-sumar" (click)="sumarCantidad(idx)" style="padding:0 6px;">+</button>
+              </td>
+              <td>{{ prod.precio_unit | number:'1.2-2' }}</td>
+              <td>{{ (prod.cantidad * prod.precio_unit) | number:'1.2-2' }}</td>
+              <td>{{ prod.vencimiento }}</td>
+              <td>{{ prod.existencia }}</td>
+              <td class="text-center">
+                <button class="btn btn-sm btn-danger" (click)="eliminarProducto(idx)"><i class="bi bi-trash"></i></button>
+              </td>
+            </tr>
+            <tr *ngIf="detalleVenta.length === 0">
+              <td colspan="11" class="text-center text-muted">
+                Empieza agregando productos aquí desde la tabla superior haciendo doble clic
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Totales parciales -->
+      <div class="d-flex justify-content-between align-items-center mt-1 px-2" style="font-size:15px;">
+        <span>Cantidad: <b id="cantidad-total">{{ cantidadTotal | number:'1.2-2' }}</b></span>
+        <span>Importe: <b id="importe-total">{{ importeTotal | number:'1.2-2' }}</b></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECCIÓN 3: DESCUENTO Y TOTAL -->
+  <div class="row m-0 mt-2">
+    <div class="col-12 p-0">
+      <div class="d-flex align-items-center gap-2 px-2">
+        <label class="me-2">Descuento</label>
+        <div class="btn-group me-1" role="group">
+          <button type="button" class="btn btn-outline-primary btn-sm" 
+            [class.active]="descuentoModo === 'porcentaje'"
+            (click)="cambiarModoDescuento('porcentaje')">%</button>
+          <button type="button" class="btn btn-outline-primary btn-sm"
+            [class.active]="descuentoModo === 'bs'"
+            (click)="cambiarModoDescuento('bs')">Bs</button>
+        </div>
+        <input type="number" [(ngModel)]="descuentoValor" (input)="calcularTotales()" class="form-control form-control-sm" style="width:90px;">
+      </div>
+      <div class="d-flex justify-content-between align-items-center px-2 mt-1">
+        <div style="font-size:22px; font-weight:700; color:#222;">Total Bs: <span id="total-bs">{{ totalBs | number:'1.2-2' }}</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE ERROR FACTURA -->
+  <div class="modal fade" id="modalErrorFactura" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title">Error al emitir factura</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          {{ errorFacturaMsg }}
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE MÉTODO DE PAGO -->
+  <div class="modal fade" id="modalMetodoPago" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content" style="border-radius:12px;">
+        <div class="modal-header" style="background:#e3f2fd; border-bottom:1.5px solid #29b6f6;">
+          <h5 class="modal-title w-100 text-center" style="font-weight:700; font-size:1.4rem;">Método de Pago</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+
+        <div class="modal-body" style="background:#f8f9fa;">
+          <!-- Tipo de documento -->
+          <div class="row mb-1">
+            <div class="col-12 d-flex flex-wrap align-items-center" style="gap:0.5rem;">
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="tipo_doc" id="doc_ci" 
+                  [(ngModel)]="tipoDocumento" value="ci">
+                <label class="form-check-label" for="doc_ci">CI</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="tipo_doc" id="doc_cex"
+                  [(ngModel)]="tipoDocumento" value="cex">
+                <label class="form-check-label" for="doc_cex">CEX</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="tipo_doc" id="doc_pas"
+                  [(ngModel)]="tipoDocumento" value="pas">
+                <label class="form-check-label" for="doc_pas">PAS</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="tipo_doc" id="doc_od"
+                  [(ngModel)]="tipoDocumento" value="od">
+                <label class="form-check-label" for="doc_od">OD</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="tipo_doc" id="doc_nit"
+                  [(ngModel)]="tipoDocumento" value="nit">
+                <label class="form-check-label" for="doc_nit">NIT</label>
+              </div>
+            </div>
+          </div>
+
+          <!-- CI y Complemento -->
+          <div class="row mb-2 align-items-end">
+            <div class="col-auto pe-0">
+              <input type="text" [(ngModel)]="documentoCI" class="form-control form-control-sm border-0 border-bottom" placeholder="CI: (F6)" style="width:120px; background:transparent; border-radius:0;">
+            </div>
+            <div class="col-auto ps-1">
+              <input type="text" [(ngModel)]="documentoComplemento" class="form-control form-control-sm border-0 border-bottom" placeholder="Complemento" style="width:120px; background:transparent; border-radius:0;">
+            </div>
+          </div>
+
+          <!-- Nombre Fiscal y Email -->
+          <div class="row mb-2">
+            <div class="col-6">
+              <label class="form-label mb-0" style="font-size:13px; color:#888;">Nombre Fiscal / Razón Social:</label>
+              <input type="text" [(ngModel)]="nombreFiscal" class="form-control form-control-sm border-0 border-bottom" style="background:transparent; border-radius:0;">
+            </div>
+            <div class="col-6">
+              <label class="form-label mb-0" style="font-size:13px; color:#888;">Email</label>
+              <input type="email" [(ngModel)]="email" class="form-control form-control-sm border-0 border-bottom" style="background:transparent; border-radius:0;">
+            </div>
+          </div>
+
+          <!-- Total y Botón Importe Exacto -->
+          <div class="row mb-2 align-items-center">
+            <div class="col-7 d-flex align-items-center" style="justify-content:center;">
+              <div style="font-size:2.2rem; color:#20C997; font-weight:700;">Bs {{ totalBs | number:'1.2-2' }}</div>
+            </div>
+            <div class="col-5 d-flex align-items-center justify-content-end">
+              <button class="btn btn-outline-success btn-sm" style="font-weight:600; border-radius:7px;">Importe exacto</button>
+            </div>
+          </div>
+
+          <!-- Tabla de métodos de pago -->
+          <div class="row mt-2">
+            <div class="col-12">
+              <table class="table table-sm mb-0" style="background:#fff; border-radius:7px; overflow:hidden;">
+                <thead style="background:#4dd0e1; color:#222;">
+                  <tr>
+                    <th style="width:40%;">Método de Pago</th>
+                    <th>Importe Bs</th>
+                    <th>Importe $us</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>EFECTIVO</td>
+                    <td><input type="number" [(ngModel)]="efectivoBs" (input)="calcularCambioModal()" class="form-control form-control-sm text-end border-0" style="background:transparent;"></td>
+                    <td><input type="number" [(ngModel)]="efectivoUsd" (input)="calcularCambioModal()" class="form-control form-control-sm text-end border-0" style="background:transparent;"></td>
+                  </tr>
+                  <tr>
+                    <td>TRANSFERENCIA / QR</td>
+                    <td><input type="number" [(ngModel)]="transferenciaBs" (input)="calcularCambioModal()" class="form-control form-control-sm text-end border-0" style="background:transparent;"></td>
+                    <td><input type="number" [(ngModel)]="transferenciaUsd" (input)="calcularCambioModal()" class="form-control form-control-sm text-end border-0" style="background:transparent;"></td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <!-- Cambio -->
+              <div class="d-flex justify-content-end align-items-center mt-2">
+                <span style="font-weight:600; color:#888; margin-right:10px;">Cambio:</span>
+                <span style="font-size:1.3rem; color:#20C997; font-weight:700;">{{ cambio | number:'1.2-2' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer" style="background:#f8f9fa; border-top:1.5px solid #29b6f6;">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-success" (click)="confirmarPago()">Confirmar Pago</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BARRA DE BOTONES INFERIOR -->
+<div class="w-100 p-0" style="background:#232c31; border-radius:0; padding:0 2%; box-shadow:0 -2px 8px 0 rgba(0,0,0,0.04);">
+    <div class="d-flex flex-column flex-md-row align-items-center justify-content-between gap-2" style="padding:12px 0;">
+    <div class="d-flex gap-2 mb-2 mb-md-0">
+      <button class="btn btn-outline-light btn-lg px-4" (click)="nuevoDocumento()" style="font-size:18px; font-weight:600; border:2px solid #fff;"><i class="bi bi-plus-lg"></i> Nuevo</button>
+      <button class="btn btn-outline-light btn-lg px-4" style="font-size:18px; font-weight:600; border:2px solid #fff;"><i class="bi bi-save"></i> Guardar</button>
+      <button class="btn btn-outline-light btn-lg px-4" style="font-size:18px; font-weight:600; border:2px solid #fff;" (click)="generarCotizacion()"><i class="bi bi-file-earmark-text"></i> Cotización</button>
+    </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-info btn-lg px-5 py-2" (click)="abrirModalPago()" style="font-size:22px; font-weight:700; border-radius:7px; min-width:180px; box-shadow:0 2px 8px 0 rgba(32,201,151,0.08);"><i class="bi bi-currency-dollar"></i> Cobrar</button>
+    </div>
+  </div>
+</div>
