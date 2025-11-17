@@ -1,0 +1,175 @@
+<div class="container-fluid mt-4">
+  <div class="row mb-4">
+    <div class="col-md-8">
+      <h2>Editar Producto</h2>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header bg-light">
+      <h5 class="mb-0">Formulario de Edición</h5>
+    </div>
+    <div class="card-body">
+      <div *ngIf="loadingData" class="text-center">
+        <div class="spinner-border" role="status">
+          <span class="visually-hidden">Cargando...</span>
+        </div>
+      </div>
+
+      <form [formGroup]="productForm" (ngSubmit)="onSubmit()" *ngIf="!loadingData">
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group mb-3">
+              <label class="form-label">Código *</label>
+              <input type="text" class="form-control" formControlName="codigo" required>
+              <small class="text-danger" *ngIf="productForm.get('codigo')?.errors?.['required']">
+                Código requerido
+              </small>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group mb-3">
+              <label class="form-label">Nombre Comercial *</label>
+              <input type="text" class="form-control" formControlName="Nombre_comercial" required>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group mb-3">
+              <label class="form-label">Nombre Genérico</label>
+              <input type="text" class="form-control" formControlName="Nombre_generico">
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group mb-3">
+              <label class="form-label">Código de Barras</label>
+              <input type="text" class="form-control" formControlName="Cod_barrras">
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group mb-3">
+              <label class="form-label">Precio Compra *</label>
+              <input type="number" class="form-control" formControlName="Precio_compra" step="0.01" required>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group mb-3">
+              <label class="form-label">Precio Venta *</label>
+              <input type="number" class="form-control" formControlName="Precio_venta" step="0.01" required>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group mb-3">
+              <label class="form-label">Margen Utilidad (%)</label>
+              <input type="number" class="form-control" formControlName="Margen_utilidad" step="0.01">
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group mb-3">
+              <label class="form-label">Acción Terapéutica</label>
+              <input type="text" class="form-control" formControlName="Accion_terapeutica">
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group mb-3">
+              <label class="form-label">Principio Activo</label>
+              <input type="text" class="form-control" formControlName="Principio_activo">
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group mb-3">
+              <label class="form-label">Concentración</label>
+              <input type="text" class="form-control" formControlName="Concentracion">
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-4">
+            <div class="form-group mb-3">
+              <label class="form-label">Marca</label>
+              <select class="form-control" formControlName="id_marca">
+                <option value="">Seleccionar marca</option>
+                <option *ngFor="let marca of marcas" [value]="marca.id">{{marca.nombre}}</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="form-group mb-3">
+              <label class="form-label">Forma Farmacéutica</label>
+              <select class="form-control" formControlName="id_forma_farmaceutica">
+                <option value="">Seleccionar forma</option>
+                <option *ngFor="let forma of formasFarmaceuticas" [value]="forma.id">{{forma.nombre}}</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="form-group mb-3">
+              <label class="form-label">Laboratorio</label>
+              <select class="form-control" formControlName="id_laboratorio">
+                <option value="">Seleccionar laboratorio</option>
+                <option *ngFor="let lab of laboratorios" [value]="lab.id">{{lab.nombre}}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-12">
+            <fieldset class="mb-3">
+              <legend class="mb-2">Opciones</legend>
+              <div class="form-check">
+                <input type="checkbox" class="form-check-input" formControlName="Control_inventario" id="control">
+                <label class="form-check-label" for="control">Controlar Inventario</label>
+              </div>
+              <div class="form-check">
+                <input type="checkbox" class="form-check-input" formControlName="Receta_medica" id="receta">
+                <label class="form-check-label" for="receta">Requiere Receta Médica</label>
+              </div>
+              <div class="form-check">
+                <input type="checkbox" class="form-check-input" formControlName="Favorito" id="favorito">
+                <label class="form-check-label" for="favorito">Favorito</label>
+              </div>
+              <div class="form-check">
+                <input type="checkbox" class="form-check-input" formControlName="Granel" id="granel">
+                <label class="form-check-label" for="granel">Venta a Granel</label>
+              </div>
+              <div class="form-check">
+                <input type="checkbox" class="form-check-input" formControlName="Medicamento_controlado" id="controlado">
+                <label class="form-check-label" for="controlado">Medicamento Controlado</label>
+              </div>
+              <div class="form-check">
+                <input type="checkbox" class="form-check-input" formControlName="Solo_compra" id="compra">
+                <label class="form-check-label" for="compra">Solo Compra (No se vende)</label>
+              </div>
+            </fieldset>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-12">
+            <button type="submit" class="btn btn-primary me-2" [disabled]="loading || productForm.invalid">
+              <span *ngIf="loading">
+                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                Guardando...
+              </span>
+              <span *ngIf="!loading">Guardar Cambios</span>
+            </button>
+            <button type="button" class="btn btn-secondary" (click)="cancel()">Cancelar</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

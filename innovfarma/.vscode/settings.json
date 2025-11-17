@@ -1,0 +1,9 @@
+{
+  "python.defaultInterpreterPath": "c:\\Users\\MOLLERICONA\\Downloads\\IInnovfarma\\innovfarma\\.venv\\Scripts\\python.exe",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/innovfarma",
+    "${workspaceFolder}/innovfarma/app"
+  ],
+  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.indexing": true
+}

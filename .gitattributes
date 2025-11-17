@@ -1,0 +1,2 @@
+*.exe filter=lfs diff=lfs merge=lfs -text
+innovfarma/front_inicial/node_modules/** filter=lfs diff=lfs merge=lfs -text

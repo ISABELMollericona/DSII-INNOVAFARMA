@@ -1,0 +1,74 @@
+<div class="container mt-5">
+  <h2>Crear Nuevo Producto</h2>
+  <form [formGroup]="productForm" (ngSubmit)="onSubmit()">
+    <div class="row">
+      <div class="col-md-6">
+        <div class="form-group">
+          <label>Código *</label>
+          <input type="text" class="form-control" formControlName="codigo" required>
+          <small class="text-danger" *ngIf="productForm.get('codigo')?.errors?.['required']">
+            Código requerido
+          </small>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="form-group">
+          <label>Nombre Comercial *</label>
+          <input type="text" class="form-control" formControlName="Nombre_comercial" required>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-md-6">
+        <div class="form-group">
+          <label>Precio Compra *</label>
+          <input type="number" class="form-control" formControlName="Precio_compra" step="0.01" required>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="form-group">
+          <label>Precio Venta *</label>
+          <input type="number" class="form-control" formControlName="Precio_venta" step="0.01" required>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-md-6">
+        <div class="form-group">
+          <label>Código de Barras</label>
+          <input type="text" class="form-control" formControlName="Cod_barrras">
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="form-group">
+          <label>Marca</label>
+          <select class="form-control" formControlName="id_marca">
+            <option value="">Seleccionar marca</option>
+            <option *ngFor="let marca of marcas" [value]="marca.id">{{marca.nombre}}</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-md-12">
+        <div class="form-check">
+          <input type="checkbox" class="form-check-input" formControlName="Control_inventario" id="control">
+          <label class="form-check-label" for="control">Controlar Inventario</label>
+        </div>
+        <div class="form-check">
+          <input type="checkbox" class="form-check-input" formControlName="Receta_medica" id="receta">
+          <label class="form-check-label" for="receta">Requiere Receta Médica</label>
+        </div>
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary" [disabled]="loading || productForm.invalid">
+      <span *ngIf="loading">Guardando...</span>
+      <span *ngIf="!loading">Crear Producto</span>
+    </button>
+    <button type="button" class="btn btn-secondary ms-2" routerLink="/products">Cancelar</button>
+  </form>
+</div>
