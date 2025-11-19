@@ -2,7 +2,7 @@
 from ..models import db, Factura, DetalleFactura, Cliente, Product
 from datetime import datetime
 
-def create_factura(user_id, cliente_id, sucursal_id, items, total):
+def create_factura(user_id, cliente_id, sucursal_id, items, total, recibido=None, cambio=None, nota=None):
     """
     Crear una nueva factura con sus detalles
     items: [{'id_producto': ..., 'cantidad': ..., 'precio_unitario': ..., 'subtotal': ...}, ...]
@@ -12,26 +12,27 @@ def create_factura(user_id, cliente_id, sucursal_id, items, total):
     if not cliente:
         raise ValueError(f"Cliente {cliente_id} no encontrado")
     
-    # Crear factura
-    factura = Factura(
-        id_usuario=user_id,
-        id_cliente=cliente_id,
-        id_sucursal=sucursal_id,
-        fecha=datetime.utcnow(),
-        total=total
-    )
+    # Crear factura (usar asignación de atributos en vez de kwargs para evitar warnings de tipado)
+    factura = Factura()
+    factura.id_usuario = user_id
+    factura.id_cliente = cliente_id
+    factura.id_sucursal = sucursal_id
+    factura.fecha = datetime.utcnow()
+    factura.total = total
+    factura.recibido = recibido
+    factura.cambio = cambio
+    factura.nota = nota
     db.session.add(factura)
     db.session.flush()  # Para obtener el ID generado
     
     # Crear detalles de factura
     for item in items:
-        detalle = DetalleFactura(
-            id_factura=factura.id,
-            id_producto=item['id_producto'],
-            cantidad=item['cantidad'],
-            precio_unitario=item['precio_unitario'],
-            subtotal=item['subtotal']
-        )
+        detalle = DetalleFactura()
+        detalle.id_factura = factura.id
+        detalle.id_producto = item.get('id_producto') or item.get('id') or None
+        detalle.cantidad = item.get('cantidad')
+        detalle.precio_unitario = item.get('precio_unitario') or item.get('precio') or 0
+        detalle.subtotal = item.get('subtotal')
         db.session.add(detalle)
     
     db.session.commit()
@@ -62,6 +63,9 @@ def get_factura(factura_id):
         'id_sucursal': factura.id_sucursal,
         'fecha': factura.fecha.isoformat() if factura.fecha else None,
         'total': factura.total,
+        'recibido': factura.recibido,
+        'cambio': factura.cambio,
+        'nota': factura.nota,
         'detalles': detalles_data,
     }
 

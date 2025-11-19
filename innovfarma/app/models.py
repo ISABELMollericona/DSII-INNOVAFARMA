@@ -113,6 +113,10 @@ class Factura(db.Model):
     id_sucursal = db.Column(db.Integer)
     fecha = db.Column(db.DateTime, default=datetime.utcnow)
     total = db.Column(db.Float)
+    # efectivo recibido y cambio entregado
+    recibido = db.Column(db.Float, nullable=True)
+    cambio = db.Column(db.Float, nullable=True)
+    nota = db.Column(db.String(255), nullable=True)
 
 class Cliente(db.Model):
     __tablename__ = 'clientes'

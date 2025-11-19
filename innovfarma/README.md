@@ -15,12 +15,7 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-2. Copiar `innovfarma/.env.example` a `.env` y ajustar la variable `DATABASE_URL`.
-	 - Si vas a usar Aiven MySQL, establece `DATABASE_URL` en el formato:
-		 `mysql+mysqldb://<user>:<password>@<host>:<port>/<database>`
-	 - Ejemplo (Aiven):
-		`mysql+mysqldb://avnadmin:AVNS_yBvY_6DXh7OJFEiee3p@innovfarma-isabelmollericona1-2658.k.aivencloud.com:21546/innovfarma`
-	 - Nota: Aiven puede requerir parámetros SSL/CA; si la conexión falla revisa la documentación de Aiven y agrega los parámetros SSL necesarios.
+
 3. Inicializar migrations y crear la base de datos:
 
 ```powershell
@@ -36,18 +31,7 @@ flask db upgrade
 python run.py
 ```
 
-Comprobar conexión a Aiven MySQL (opcional)
-1. Instala dependencias si no lo hiciste:
 
-```powershell
-pip install -r requirements.txt
-```
-
-2. Ejecuta el script de verificación:
-
-```powershell
-python check_db_connection.py
-```
 
 El script intentará conectarse usando `DATABASE_URL` del `.env` y te mostrará si la conexión fue exitosa o te dará el error.
 

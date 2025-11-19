@@ -5,11 +5,31 @@ from ..mongo_models import find_user_by_identifier, check_user_password
 auth_bp = Blueprint('auth', __name__)
 
 
-@auth_bp.route('/login', methods=['POST'])
+@auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
+    # GET: return current logged-in user (if any)
+    if request.method == 'GET':
+        if not current_user or getattr(current_user, 'is_authenticated', False) is not True:
+            return jsonify({'user': None}), 200
+        # try to return a simple dict for the frontend
+        try:
+            # current_user may be a lite proxy object; attempt to read common fields
+            uid = getattr(current_user, 'get_id', lambda: None)()
+            # try to load from mongo_models for richer info
+            from ..mongo_models import find_user_by_id
+            doc = find_user_by_id(uid) if uid else None
+        except Exception:
+            doc = None
+        if not doc:
+            # fallback to minimal info
+            return jsonify({'user': {'id': uid}}), 200
+        return jsonify({'user': {'id': doc.get('id'), 'nombre': doc.get('nombre'), 'email': doc.get('email'), 'rol': doc.get('rol')}}), 200
+
+    # POST: perform login
     data = request.get_json() or {}
     identifier = data.get('email') or data.get('username')
     password = data.get('password')
+    remember = bool(data.get('remember'))
     if not identifier or not password:
         return jsonify({'error': 'email/username and password required'}), 400
 
@@ -34,8 +54,9 @@ def login():
             return False
 
     user = U(doc)
-    login_user(user)
-    return jsonify({'message': 'ok', 'user': {'id': doc.get('id'), 'nombre': doc.get('nombre'), 'email': doc.get('email')}})
+    # respect remember flag to create a persistent session cookie if requested
+    login_user(user, remember=remember)
+    return jsonify({'message': 'ok', 'user': {'id': doc.get('id'), 'nombre': doc.get('nombre'), 'email': doc.get('email'), 'rol': doc.get('rol')}})
 
 
 @auth_bp.route('/logout', methods=['POST'])
