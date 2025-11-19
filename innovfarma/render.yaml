@@ -1,0 +1,43 @@
+# render.yaml - definición de servicios para Render (monorepo)
+# Ajusta los valores de repo, regiones y secretos antes de usar.
+
+services:
+  - type: web
+    name: innovfarma-backend
+    env: python
+    region: oregon
+    repo: https://github.com/<TU_ORG>/<TU_REPO>
+    branch: main
+    rootDir: innovfarma
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT run:app
+    autoDeploy: true
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        value: ${SECRET_KEY}
+      - key: MONGO_URI
+        value: ${MONGO_URI}
+      - key: FRONTEND_URL
+        value: ${FRONTEND_URL}
+
+  - type: static
+    name: innovfarma-frontend
+    env: static
+    region: oregon
+    repo: https://github.com/<TU_ORG>/<TU_REPO>
+    branch: main
+    rootDir: innovfarma/front_inicial
+    publishPath: .
+    autoDeploy: true
+    envVars:
+      - key: BACKEND_URL
+        value: ${BACKEND_URL}
+
+# NOTAS:
+# - Reemplaza <TU_ORG>/<TU_REPO> por tu repositorio real.
+# - Render usará el directorio indicado en `rootDir` como raíz de ejecución.
+#   Cambios fuera de ese directorio NO activarán despliegues automáticos para ese servicio.
+# - Antes de importar este archivo en Render, crea los secretos/variables de entorno
+#   (SECRET_KEY, MONGO_URI, FRONTEND_URL, BACKEND_URL) en la UI o mediante la CLI.
