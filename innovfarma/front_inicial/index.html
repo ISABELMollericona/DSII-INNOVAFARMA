@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>InnovFarma - Front Inicial</title>
+  <link rel="stylesheet" href="/styles.css">
+  <!-- Font Awesome para iconos del menú -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <div class="app-wrapper">
+    <header class="app-header">
+  <button id="btnMenuToggle" class="menu-toggle" aria-label="Abrir menú" aria-expanded="true"><i class="fa-solid fa-bars"></i></button>
+      <div class="brand">InnovFarma</div>
+      <div class="user-area">
+        <span id="userName">Invitado</span>
+        <button id="btnLogin" class="btn small">Iniciar sesión</button>
+        <button id="btnLogout" class="btn small" style="display:none">Salir</button>
+      </div>
+    </header>
+    <div class="layout">
+  <aside class="sidebar" id="leftMenu">
+        <div class="sidebar-header">
+          <h3>Módulos</h3>
+        </div>
+        <nav>
+          <ul>
+            <li><a href="#/inicio" data-route="/inicio" id="nav-inicio" data-roles="*"><i class="fa-solid fa-house-chimney"></i><span>Inicio</span></a></li>
+            <li><a href="#/productos" data-route="/productos" id="nav-productos" data-roles="admin,almacen"><i class="fa-solid fa-boxes-stacked"></i><span>Productos</span></a></li>
+            <li><a href="#/clientes" data-route="/clientes" id="nav-clientes" data-roles="admin,vendedor"><i class="fa-solid fa-user"></i><span>Clientes</span></a></li>
+            <li><a href="#/facturas" data-route="/facturas" id="nav-facturas" data-roles="admin,vendedor"><i class="fa-solid fa-file-invoice-dollar"></i><span>Facturas</span></a></li>
+            <li>
+              <a href="#/inventarios" data-route="/inventarios" id="nav-inventarios" data-roles="admin,almacen"><i class="fa-solid fa-boxes-stacked fa-rotate-90"></i><span>Inventarios</span></a>
+              <ul class="submenu">
+                <li><a href="#/inventarios/overview" data-route="/inventarios/overview">Resumen / Kardex</a></li>
+                <li><a href="#/inventarios/lotes" data-route="/inventarios/lotes">Lotes / Caducidades</a></li>
+                <li><a href="#/inventarios/traspasos" data-route="/inventarios/traspasos">Traspasos</a></li>
+                <li><a href="#/inventarios/pedidos" data-route="/inventarios/pedidos">Pedidos</a></li>
+                <li><a href="#/inventarios/reportes" data-route="/inventarios/reportes">Reportes</a></li>
+                <li><a href="#/inventarios/alertas" data-route="/inventarios/alertas">Alertas</a></li>
+              </ul>
+            </li>
+            <li><a href="#/compras" data-route="/compras" id="nav-compras" data-roles="admin,almacen"><i class="fa-solid fa-truck-field"></i><span>Compras</span></a></li>
+            <li><a href="#/ventas" data-route="/ventas" id="nav-ventas" data-roles="vendedor"><i class="fa-solid fa-cash-register"></i><span>Ventas</span></a></li>
+            <li><a href="#/configuraciones" data-route="/configuraciones" id="nav-config" data-roles="admin"><i class="fa-solid fa-gear"></i><span>Configuraciones</span></a></li>
+          </ul>
+        </nav>
+      </aside>
+  <div id="sidebarOverlay" class="sidebar-overlay" tabindex="-1"></div>
+      <main class="content" id="mainContent">
+        <div id="pageContent">
+          <h2>Bienvenido</h2>
+          <p>Esta es la interfaz inicial servida desde Flask. Usa la API en <code>/api</code>.</p>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Modal root: aquí se montarán los modales dinámicos -->
+  <div id="modalRoot" class="modal-root" aria-hidden="true"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

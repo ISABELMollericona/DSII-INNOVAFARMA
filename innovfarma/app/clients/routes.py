@@ -1,24 +1,36 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required
-from .sql_helpers import (
-    create_cliente, get_cliente, search_cliente_by_ci,
-    search_cliente_by_nombre, list_clientes, update_cliente
-)
+
+# Import both helper modules; choose at request time based on current_app config
+try:
+    from .. import mongo_models as mongo_helpers
+except Exception:
+    mongo_helpers = None
+
+from . import sql_helpers as sql_helpers
 
 clients_bp = Blueprint('clients', __name__)
+
+
+def _helpers():
+    if current_app and current_app.config.get('MONGO_URI') and mongo_helpers:
+        return mongo_helpers
+    return sql_helpers
 
 @clients_bp.route('/clientes', methods=['GET'])
 def get_clientes():
     """List all clientes with pagination"""
     limit = request.args.get('limit', 100, type=int)
     skip = request.args.get('page', 0, type=int) * limit
-    clientes = list_clientes(limit=limit, skip=skip)
+    h = _helpers()
+    clientes = h.list_clientes(limit=limit, skip=skip)
     return jsonify({'clientes': clientes, 'total': len(clientes)})
 
 @clients_bp.route('/clientes/<cliente_id>', methods=['GET'])
 def get_cliente_detail(cliente_id):
     """Get cliente by ID"""
-    cliente = get_cliente(cliente_id)
+    h = _helpers()
+    cliente = h.get_cliente(cliente_id)
     if not cliente:
         return jsonify({'error': 'cliente not found'}), 404
     return jsonify(cliente)
@@ -31,7 +43,8 @@ def search_by_ci():
     if not ci:
         return jsonify({'error': 'ci required'}), 400
     
-    cliente = search_cliente_by_ci(ci)
+    h = _helpers()
+    cliente = h.search_cliente_by_ci(ci)
     if not cliente:
         return jsonify({'error': 'cliente not found'}), 404
     return jsonify(cliente)
@@ -44,7 +57,8 @@ def search_by_nombre():
     if not nombre:
         return jsonify({'error': 'nombre or q required'}), 400
     
-    clientes = search_cliente_by_nombre(nombre)
+    h = _helpers()
+    clientes = h.search_cliente_by_nombre(nombre)
     return jsonify({'clientes': clientes, 'total': len(clientes)})
 
 @clients_bp.route('/clientes', methods=['POST'])
@@ -57,17 +71,18 @@ def create_new_cliente():
         return jsonify({'error': f'fields required: {", ".join(required)}'}), 400
     
     # check if already exists
-    existing = search_cliente_by_ci(data['ci'])
+    h = _helpers()
+    existing = h.search_cliente_by_ci(data['ci'])
     if existing:
         return jsonify({'error': 'cliente with this ci already exists'}), 409
     
-    cliente_id = create_cliente(
+    cliente_id = h.create_cliente(
         nombre=data['nombre'],
         ci=data['ci'],
         direccion=data.get('direccion', ''),
         telefono=data.get('telefono', '')
     )
-    cliente = get_cliente(cliente_id)
+    cliente = h.get_cliente(cliente_id)
     return jsonify(cliente), 201
 
 @clients_bp.route('/clientes/<cliente_id>', methods=['PUT'])
@@ -78,9 +93,10 @@ def update_cliente_detail(cliente_id):
     if not data:
         return jsonify({'error': 'no data to update'}), 400
     
-    success = update_cliente(cliente_id, **data)
+    h = _helpers()
+    success = h.update_cliente(cliente_id, **data)
     if not success:
         return jsonify({'error': 'cliente not found or update failed'}), 404
     
-    cliente = get_cliente(cliente_id)
+    cliente = h.get_cliente(cliente_id)
     return jsonify(cliente)

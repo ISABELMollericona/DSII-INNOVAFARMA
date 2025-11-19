@@ -1,12 +1,27 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required
-from .sql_helpers import (
-    list_products, filter_products, filter_advanced, get_product,
-    get_product_by_barcode, search_by_barcode, search_suggestions_by_barcode,
-    create_product, update_product, delete_product, get_product_full_details
-)
+
+# Import both helper modules (one will be selected at request time based on app config).
+# This avoids a brittle import-time check against environment variables.
+try:
+    from .. import mongo_models as mongo_helpers
+except Exception:
+    mongo_helpers = None
+
+from . import sql_helpers as sql_helpers
 
 products_bp = Blueprint('products', __name__)
+
+
+def _helpers():
+    """Return the appropriate helpers module based on current app configuration.
+
+    Prefers Mongo if MONGO_URI is present in app config and the mongo_helpers module
+    was successfully imported; otherwise falls back to SQL helpers.
+    """
+    if current_app and current_app.config.get('MONGO_URI') and mongo_helpers:
+        return mongo_helpers
+    return sql_helpers
 
 
 # ========== READ (GET) ==========
@@ -17,23 +32,42 @@ def productos_index():
     limit = request.args.get('limit', 100, type=int)
     skip = request.args.get('skip', 0, type=int)
     
-    productos = list_products(limit=limit)
+    h = _helpers()
+    productos = h.list_products(limit=limit)
     return jsonify({'productos': productos, 'total': len(productos)})
 
 
 @products_bp.route('/productos/<int:product_id>', methods=['GET'])
+@products_bp.route('/productos/<product_id>', methods=['GET'])
 def get_product_detail(product_id):
-    """Obtener un producto por ID"""
-    producto = get_product(product_id)
+    """Obtener un producto por ID
+
+    Soporta IDs numéricos (SQL) y IDs tipo string/ObjectId (Mongo).
+    Cuando el id es numérico se convierte a int para los helpers SQL; en otro
+    caso se pasa tal cual para que los helpers de Mongo lo resuelvan.
+    """
+    try:
+        pid = int(product_id) if (isinstance(product_id, str) and product_id.isdigit()) else product_id
+    except Exception:
+        pid = product_id
+
+    h = _helpers()
+    producto = h.get_product(pid)
     if not producto:
         return jsonify({'error': 'Producto no encontrado'}), 404
     return jsonify(producto)
 
 
 @products_bp.route('/productos/detalle-completo/<int:product_id>', methods=['GET'])
+@products_bp.route('/productos/detalle-completo/<product_id>', methods=['GET'])
 def get_full_details(product_id):
-    """Obtener detalles completos de un producto"""
-    producto = get_product_full_details(product_id)
+    """Obtener detalles completos de un producto (soporta ids numéricos y ObjectId)"""
+    try:
+        pid = int(product_id) if (isinstance(product_id, str) and product_id.isdigit()) else product_id
+    except Exception:
+        pid = product_id
+    h = _helpers()
+    producto = h.get_product_full_details(pid)
     if not producto:
         return jsonify({'error': 'Producto no encontrado'}), 404
     return jsonify(producto)
@@ -42,7 +76,8 @@ def get_full_details(product_id):
 @products_bp.route('/productos/codigo-barras/<codigo_barras>', methods=['GET'])
 def search_by_exact_barcode(codigo_barras):
     """Buscar un producto exacto por código de barras"""
-    producto = get_product_by_barcode(codigo_barras)
+    h = _helpers()
+    producto = h.get_product_by_barcode(codigo_barras)
     if not producto:
         return jsonify(None), 404
     return jsonify(producto)
@@ -51,19 +86,38 @@ def search_by_exact_barcode(codigo_barras):
 @products_bp.route('/productos/sugerencias-codigo/<codigo>', methods=['GET'])
 def sugerencias_por_codigo(codigo):
     """Obtener sugerencias de productos por código de barras (parcial)"""
-    productos = search_suggestions_by_barcode(codigo)
+    h = _helpers()
+    productos = h.search_suggestions_by_barcode(codigo)
     return jsonify(productos)
 
 
 @products_bp.route('/productos/filtrar', methods=['POST'])
 def productos_filtrar():
     """Filtrar productos por término de búsqueda en múltiples campos"""
+    import traceback
     data = request.get_json() or {}
     term = data.get('term') or data.get('q') or data.get('buscar', '')
     limit = data.get('limit', 200)
-    
-    productos = filter_products(term, limit=limit)
-    return jsonify({'productos': productos, 'total': len(productos)})
+    try:
+        h = _helpers()
+        productos = h.filter_products(term, limit=limit)
+        # Debug: log count and sample keys to help diagnose frontend issues
+        try:
+            print(f"[DEBUG /api/productos/filtrar] found {len(productos)} productos")
+            if len(productos):
+                sample = productos[0]
+                if isinstance(sample, dict):
+                    print("[DEBUG sample producto keys]", list(sample.keys()))
+                else:
+                    print("[DEBUG sample producto type]", type(sample))
+        except Exception:
+            pass
+        return jsonify({'productos': productos, 'total': len(productos)})
+    except Exception as e:
+        tb = traceback.format_exc()
+        print(f"[ERROR /api/productos/filtrar] {e}\n{tb}")
+        # Devuelve el error y el stacktrace en la respuesta (solo para depuración)
+        return jsonify({'error': str(e), 'traceback': tb}), 500
 
 
 @products_bp.route('/productos/filtro-avanzado', methods=['POST'])
@@ -78,7 +132,8 @@ def filtro_avanzado():
     limit = data.get('limit', 100)
     skip = data.get('skip', 0)
     
-    productos = filter_advanced(
+    h = _helpers()
+    productos = h.filter_advanced(
         marca_id=marca_id,
         categoria_id=categoria_id,
         subcategoria_id=subcategoria_id,
@@ -137,9 +192,10 @@ def create_new_product():
             'Solo_compra': 1 if data.get('Solo_compra') else 0,
         }
         
-        product_id = create_product(**product_data)
-        producto = get_product(product_id)
-        
+        h = _helpers()
+        product_id = h.create_product(**product_data)
+        producto = h.get_product(product_id)
+
         return jsonify({'success': True, 'message': 'Producto guardado correctamente', 'producto': producto}), 201
     except Exception as e:
         return jsonify({'success': False, 'message': 'Error al guardar el producto', 'error': str(e)}), 500
@@ -148,6 +204,7 @@ def create_new_product():
 # ========== UPDATE (PUT) ==========
 
 @products_bp.route('/productos/<int:product_id>', methods=['PUT'])
+@products_bp.route('/productos/<product_id>', methods=['PUT'])
 @login_required
 def update_product_detail(product_id):
     """Actualizar un producto"""
@@ -184,12 +241,19 @@ def update_product_detail(product_id):
             if field in data:
                 update_data[field] = 1 if data[field] else 0
         
-        success = update_product(product_id, **update_data)
-        
+        # normalizar id (int para SQL, string/ObjectId para Mongo)
+        try:
+            pid = int(product_id) if (isinstance(product_id, str) and product_id.isdigit()) else product_id
+        except Exception:
+            pid = product_id
+
+        h = _helpers()
+        success = h.update_product(pid, **update_data)
+
         if not success:
             return jsonify({'error': 'Producto no encontrado o error en actualización'}), 404
-        
-        producto = get_product(product_id)
+
+        producto = h.get_product(pid)
         return jsonify({'success': True, 'message': 'Producto actualizado correctamente', 'producto': producto}), 200
     except Exception as e:
         return jsonify({'success': False, 'message': 'Error al actualizar el producto', 'error': str(e)}), 500
@@ -198,15 +262,22 @@ def update_product_detail(product_id):
 # ========== DELETE (DELETE) ==========
 
 @products_bp.route('/productos/<int:product_id>', methods=['DELETE'])
+@products_bp.route('/productos/<product_id>', methods=['DELETE'])
 @login_required
 def delete_product_detail(product_id):
-    """Eliminar un producto"""
+    """Eliminar un producto (soporta ids numéricos y ObjectId)"""
     try:
-        success = delete_product(product_id)
-        
+        try:
+            pid = int(product_id) if (isinstance(product_id, str) and product_id.isdigit()) else product_id
+        except Exception:
+            pid = product_id
+
+        h = _helpers()
+        success = h.delete_product(pid)
+
         if not success:
             return jsonify({'error': 'Producto no encontrado'}), 404
-        
+
         return jsonify({'success': True, 'message': 'Producto eliminado exitosamente'}), 200
     except Exception as e:
         return jsonify({'success': False, 'message': 'Error al eliminar el producto', 'error': str(e)}), 500

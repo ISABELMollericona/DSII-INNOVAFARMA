@@ -37,7 +37,7 @@ interface MenuItem {
               <i class="fas fa-chevron-right arrow-icon" [class.rotated]="openMenus[i]"></i>
             </button>
             
-            <ul class="submenu" *ngIf="openMenus[i]" [@slideDown]>
+            <ul class="submenu" *ngIf="openMenus[i]">
               <li *ngFor="let child of item.children">
                 <a [routerLink]="child.path" class="submenu-link">
                   <i class="fas" [ngClass]="child.icon + ' submenu-icon'"></i>
