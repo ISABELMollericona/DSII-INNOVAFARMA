@@ -11,7 +11,7 @@ migrate = Migrate()
 login_manager = LoginManager()
 
 
-def create_app(config_object='config.Config'):
+def create_app(config_object='innovfarma.config.Config'):
     app = Flask(__name__, instance_relative_config=False)
     app.config.from_object(config_object)
 
