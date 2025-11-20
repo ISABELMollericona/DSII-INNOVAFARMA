@@ -13,12 +13,23 @@ def list_inventarios():
         limit = int(request.args.get('limit', 200))
     except Exception:
         limit = 200
-    # Reutilizamos el helper de productos para listar
-    items = mongo_models.list_products(limit=limit)
-    # Aseguramos que cada item tenga campo existencia
+    # Reutilizamos el helper de productos para listar.
+    items = mongo_models.list_products(limit=limit) or []
+    normalized = []
     for it in items:
-        it['existencia'] = it.get('existencia', it.get('stock', it.get('cantidad', 0)))
-    return jsonify({'inventarios': items, 'total': len(items)})
+        if not isinstance(it, dict):
+            # ignorar elementos inesperados
+            continue
+        existencia = it.get('existencia')
+        if existencia is None:
+            existencia = it.get('stock', it.get('cantidad', 0))
+        try:
+            existencia = int(existencia)
+        except Exception:
+            existencia = 0
+        it['existencia'] = existencia
+        normalized.append(it)
+    return jsonify({'inventarios': normalized, 'total': len(normalized)})
 
 
 @inventarios_bp.route('/lotes', methods=['GET'])
