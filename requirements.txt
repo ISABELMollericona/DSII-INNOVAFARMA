@@ -3,6 +3,9 @@ python-dotenv>=0.21
 requests>=2.28
 
 # MongoDB
+flask-pymongo
+pymongo
+
 pymongo[srv]>=4.3
 dnspython>=2.2
 
