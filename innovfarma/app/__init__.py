@@ -11,7 +11,7 @@ migrate = Migrate()
 login_manager = LoginManager()
 
 
-def create_app(config_object='config.Config'):
+def create_app(config_object='innovfarma.config.Config'):
     # Determine project root and the path to the frontend static folder
     basedir = os.path.abspath(os.path.dirname(__file__))
     project_root = os.path.abspath(os.path.join(basedir, '..'))
