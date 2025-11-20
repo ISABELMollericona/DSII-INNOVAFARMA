@@ -2,24 +2,11 @@ Flask>=2.0
 python-dotenv>=0.21
 requests>=2.28
 
-# MongoDB
-flask-pymongo
-pymongo
-
+Flask-PyMongo>=2.3
 pymongo[srv]>=4.3
 dnspython>=2.2
 
-# Authentication, CORS, migrations and SQL support
 Flask-Login>=0.6
 Flask-Cors>=3.0
-Flask-Migrate>=4.0
-Flask-SQLAlchemy>=3.0
-SQLAlchemy>=1.4
-alembic>=1.10
 
-# SQL drivers (install the one(s) you need for your DB)
-psycopg2-binary>=2.9  # PostgreSQL driver
-PyMySQL>=1.0  # MySQL driver (optional)
-
-# Production server
 gunicorn>=20.1
