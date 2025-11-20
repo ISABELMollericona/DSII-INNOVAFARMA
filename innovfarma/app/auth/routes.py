@@ -17,7 +17,11 @@ def login():
             uid = getattr(current_user, 'get_id', lambda: None)()
             # try to load from mongo_models for richer info
             from ..mongo_models import find_user_by_id
-            doc = find_user_by_id(uid) if uid else None
+            try:
+                doc = find_user_by_id(uid) if uid else None
+            except Exception as e:
+                # probable DB connection issue -> inform frontend explicitly
+                return jsonify({'error': 'db_connection', 'message': 'Error conectando a la base de datos'}), 503
         except Exception:
             doc = None
         if not doc:
@@ -33,9 +37,17 @@ def login():
     if not identifier or not password:
         return jsonify({'error': 'email/username and password required'}), 400
 
-    doc = find_user_by_identifier(identifier)
-    if not doc or not check_user_password(doc, password):
-        return jsonify({'error': 'invalid credentials'}), 401
+    try:
+        doc = find_user_by_identifier(identifier)
+    except Exception:
+        return jsonify({'error': 'db_connection', 'message': 'Error conectando a la base de datos'}), 503
+
+    try:
+        if not doc or not check_user_password(doc, password):
+            return jsonify({'error': 'invalid credentials'}), 401
+    except Exception:
+        # if password check hits DB or other unexpected DB-backed logic
+        return jsonify({'error': 'db_connection', 'message': 'Error conectando a la base de datos'}), 503
 
     # create a minimal user object for flask-login
     class U:
