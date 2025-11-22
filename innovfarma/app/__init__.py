@@ -47,6 +47,7 @@ def create_app(config_object='innovfarma.config.Config'):
     from .clients.routes import clients_bp
     from .inventarios.routes import inventarios_bp
     from .compras.routes import compras_bp
+    from .users.routes import users_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api')
     app.register_blueprint(products_bp, url_prefix='/api')
@@ -54,6 +55,7 @@ def create_app(config_object='innovfarma.config.Config'):
     app.register_blueprint(clients_bp, url_prefix='/api')
     app.register_blueprint(inventarios_bp, url_prefix='/api')
     app.register_blueprint(compras_bp, url_prefix='/api')
+    app.register_blueprint(users_bp, url_prefix='/api')
 
     # Serve frontend index.html at root if the static frontend exists; otherwise return API status
     @app.route('/')

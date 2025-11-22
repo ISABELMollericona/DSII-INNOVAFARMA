@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
+from datetime import datetime
 
 try:
     from .. import mongo_models as mongo_helpers
@@ -26,6 +27,36 @@ def list_invoices():
     h = _helpers()
     facturas = h.list_facturas(limit=limit, skip=skip)
     return jsonify(facturas)
+
+
+@invoices_bp.route('/facturas/informe', methods=['GET'])
+@login_required
+def informe_ventas():
+    """Endpoint para generar informe de ventas.
+
+    Parámetros query (opcionales): `fecha_inicio` (ISO), `fecha_fin` (ISO), `id_usuario`, `top_n`.
+    """
+    fecha_inicio = request.args.get('fecha_inicio')
+    fecha_fin = request.args.get('fecha_fin')
+    id_usuario = request.args.get('id_usuario')
+    top_n = request.args.get('top_n', 10, type=int)
+
+    # parsear fechas si vienen
+    try:
+        if fecha_inicio:
+            fecha_inicio = datetime.fromisoformat(fecha_inicio)
+        if fecha_fin:
+            fecha_fin = datetime.fromisoformat(fecha_fin)
+    except Exception as e:
+        return jsonify({'error': f'Formato de fecha inválido: {str(e)}'}), 400
+
+    h = _helpers()
+    # el helper SQL tiene la función generar_informe_ventas; si usamos mongo adaptador, debe implementarlo.
+    if hasattr(h, 'generar_informe_ventas'):
+        informe = h.generar_informe_ventas(fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, id_usuario=id_usuario, top_n=top_n)
+        return jsonify(informe)
+    else:
+        return jsonify({'error': 'Informe no soportado por el adaptador actual'}), 501
 
 
 @invoices_bp.route('/facturas/<factura_id>', methods=['GET'])
@@ -81,6 +112,14 @@ def create_invoice():
         h = _helpers()
         # pass payment details when creating invoice
         factura_id = h.create_factura(user_id, cliente_id, sucursal_id, items, total, recibido=recibido, cambio=cambio, nota=nota)
+        # try to return the full factura object so frontend can show recibo/cambio/fecha/numero immediately
+        try:
+            factura = h.get_factura(factura_id)
+            if factura:
+                return jsonify(factura), 201
+        except Exception:
+            pass
+        # fallback: return id only
         return jsonify({'id': factura_id, 'mensaje': 'factura creada'}), 201
     except Exception as e:
         # validation errors (insufficient stock, missing product) return 400

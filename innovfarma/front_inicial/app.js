@@ -72,6 +72,17 @@
     options.credentials = options.credentials || 'include';
     const headers = options.headers || {};
     options.headers = Object.assign({'Content-Type':'application/json'}, headers);
+    // Client-side guard: if configuration requires that user management is admin-only,
+    // block requests to the usuarios API for non-admin users. We use localStorage here
+    // because `CURRENT_USER_ROLE` may not be initialized at this point in the module.
+    try{
+      const usersOnlyAdmin = (function(){ try{ return localStorage.getItem('config_users_admin_only') === 'true'; }catch(_){ return false; } })();
+      const role = (function(){ try{ return localStorage.getItem('current_user_role') || null; }catch(_){ return null; } })();
+      if(usersOnlyAdmin && role !== 'admin' && String(path || '').startsWith('/api/usuarios')){
+        // Simulate a forbidden response to stop the request from being sent
+        throw { status: 403, data: { error: 'Gestión de usuarios reservada a administradores (configuración activa).' } };
+      }
+    }catch(_){ }
     const res = await fetch(path, options);
     if(res.status === 204) return null;
     const data = await res.json().catch(()=>null);
@@ -98,21 +109,23 @@
   let CURRENT_USER_ROLE = null;
 
   function applyRolePermissions(role){
-    // Show/hide sidebar links based on data-roles attribute
+    // Show/hide elements across the app based on `data-roles` attribute
     try{
-      const links = document.querySelectorAll('.sidebar nav a[data-roles]');
-      links.forEach(a=>{
-        const allowed = String(a.dataset.roles || '').split(',').map(s=>s.trim()).filter(Boolean);
+      // target any element carrying a `data-roles` attribute (not only sidebar links)
+      const elems = document.querySelectorAll('[data-roles]');
+      elems.forEach(el=>{
+        const allowed = String(el.dataset.roles || '').split(',').map(s=>s.trim()).filter(Boolean);
         if(allowed.length === 0 || allowed.indexOf('*') !== -1){
-          a.style.display = '';
+          el.style.display = '';
         } else if(role && allowed.indexOf(role) !== -1){
-          a.style.display = '';
+          el.style.display = '';
         } else {
-          // hide link
-          a.style.display = 'none';
+          // hide element when current role is not allowed
+          el.style.display = 'none';
         }
       });
-      // also hide any submenu items if parent is hidden
+
+      // also hide sidebar list items when their primary link is hidden
       document.querySelectorAll('.sidebar nav li').forEach(li=>{
         const primary = li.querySelector('a[data-roles]');
         if(primary && primary.style.display === 'none'){
@@ -121,6 +134,17 @@
           li.style.display = '';
         }
       });
+      // Respect configuration: if admin-only user management is enabled,
+      // hide any element that carries `data-manage-users="true"` for non-admins
+      try{
+        const usersOnlyAdmin = (()=>{ try{ return localStorage.getItem('config_users_admin_only') === 'true'; }catch(_){ return false; } })();
+        if(usersOnlyAdmin && role !== 'admin'){
+          document.querySelectorAll('[data-manage-users]')?.forEach(el=>{ el.style.display = 'none'; });
+        } else if(usersOnlyAdmin && role === 'admin'){
+          // ensure admin can see them
+          document.querySelectorAll('[data-manage-users]')?.forEach(el=>{ el.style.display = ''; });
+        }
+      }catch(_){ }
     }catch(e){ console.error('applyRolePermissions error', e); }
   }
 
@@ -139,13 +163,15 @@
     updateActiveNav(route);
     try{
   if(route === '' || route === '/inicio') return renderInicio();
-  if(route.startsWith('/productos')) return renderProductos(route);
-  if(route.startsWith('/inventarios')) return renderInventarios(route);
-  if(route === '/ventas' || route.startsWith('/ventas')) return renderVentas(route);
-      if(route === '/clientes') return renderClientes();
+        if(route.startsWith('/productos')) return renderProductos(route);
+        if(route.startsWith('/inventarios')) return renderInventarios(route);
+        if(route === '/ventas' || route.startsWith('/ventas')) return renderVentas(route);
+        if(route === '/clientes') return renderClientes();
+        if(route === '/usuarios' || route.startsWith('/usuarios')) return renderUsuarios();
         if(route === '/facturas') return renderFacturas();
         if(route.startsWith('/compras')) return renderCompras(route);
       if(route === '/login') return renderLogin();
+      if(route === '/configuraciones') return renderConfiguraciones();
       // default
       return renderInicio();
     }catch(err){
@@ -258,7 +284,7 @@
     }
   }
 
-  function formatDateIsoToLocal(d){ try{ if(!d) return ''; const dt = new Date(d); if(isNaN(dt)) return d; return dt.toLocaleDateString(); }catch(e){ return d; } }
+  function formatDateIsoToLocal(d){ try{ if(!d) return ''; const dt = new Date(d); if(isNaN(dt)) return d; return dt.toLocaleString(); }catch(e){ return d; } }
 
   function daysTo(dateStr){ try{ if(!dateStr) return Infinity; const dt = new Date(dateStr); const now = new Date(); const diff = dt - now; return Math.ceil(diff / (1000*60*60*24)); }catch(e){ return Infinity; } }
 
@@ -509,13 +535,64 @@
           showAlertToMain('Venta generada: ID '+(res?.id||'?') + (cambio>=0? ' | Cambio: $'+(cambio.toFixed(2)) : ''),'success');
           // show receipt modal (comprobante) with options to download TXT or print (save as PDF)
           try{
-            const soldItems = items; // items local before clearing
+            // preserve product names and numeric prices for the receipt
+            const soldItems = (POS.items || []).map(i => ({
+              id_producto: i.id_producto,
+              cantidad: parseInt(i.cantidad) || 0,
+              precio_unitario: (i.precio_unitario != null) ? parseFloat(i.precio_unitario) : (i.Precio_venta != null ? parseFloat(i.Precio_venta) : 0),
+              subtotal: (i.subtotal != null) ? parseFloat(i.subtotal) : ( (i.cantidad && i.precio_unitario) ? (parseFloat(i.cantidad) * parseFloat(i.precio_unitario)) : 0 ),
+              nombre: i.nombre || i.Nombre_comercial || i.Nombre_generico || i.name || ''
+            }));
             const clientName = clientInfo ? clientInfo.textContent : '';
             openReceiptModal(res, soldItems, clientName);
+            // auto-trigger download (TXT) and print; keep modal open for the user
+            setTimeout(()=>{
+              try{
+                const downloadBtn = document.getElementById('btnDownloadTxt');
+                const printBtn = document.getElementById('btnPrintPdf');
+                // trigger download first
+                if(downloadBtn) {
+                  try{ downloadBtn.click(); }catch(e){ console.warn('auto download click failed', e); }
+                } else {
+                  // fallback: build and download the TXT ourselves
+                  try{
+                    const txt = (function(){
+                      let out = '';
+                      out += `Comprobante ID: ${res?.numero||res?.id||''}\n`;
+                      out += `Fecha: ${res?.fecha? formatDateIsoToLocal(res.fecha) : (new Date()).toLocaleString()}\n`;
+                      out += `Vendedor: ${res?.vendedor_nombre||''}\n`;
+                      out += `Cliente: ${clientName || '-'}\n\n`;
+                      out += `Producto\tCant.\tPrecio\tSubtotal\n`;
+                      for(const it of (soldItems||[])) { out += `${it.nombre||''}\t${it.cantidad}\t${(it.precio_unitario||0).toFixed(2)}\t${(it.subtotal||0).toFixed(2)}\n`; }
+                      out += `\nTotal: $${Number(res?.total||0).toFixed(2)}\n`;
+                      out += `Recibido: $${res?.recibido||''}\n`;
+                      out += `Cambio: $${res?.cambio||''}\n`;
+                      out += `Nota: ${res?.nota||''}\n`;
+                      return out;
+                    })();
+                    const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a'); a.href = url; a.download = `comprobante_${res?.numero||res?.id||''}.txt`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+                  }catch(e){ console.warn('fallback download failed', e); }
+                }
+                // then trigger print
+                if(printBtn){ try{ printBtn.click(); }catch(e){ console.warn('auto print click failed', e); } }
+                else {
+                  // fallback: open printable window and trigger print
+                  const printWin = window.open('', '_blank');
+                  if(printWin){
+                    const style = `<style>body{font-family:Arial,Helvetica,sans-serif;padding:20px} table{width:100%;border-collapse:collapse} th,td{padding:6px;border-bottom:1px solid #ddd}</style>`;
+                    const rows = (soldItems||[]).map(it=>`<tr><td>${it.nombre||''}</td><td style="text-align:center">${it.cantidad}</td><td style="text-align:right">$${(it.precio_unitario||0).toFixed(2)}</td><td style="text-align:right">$${(it.subtotal||0).toFixed(2)}</td></tr>`).join('');
+                    const content = `<h2>Comprobante de pago</h2><div><strong>ID:</strong> ${res?.numero||res?.id||''}</div><div><strong>Fecha:</strong> ${res?.fecha? formatDateIsoToLocal(res.fecha) : (new Date()).toLocaleString()}</div><div><strong>Vendedor:</strong> ${res?.vendedor_nombre||''}</div><div><strong>Cliente:</strong> ${clientName||'-'}</div><table><thead><tr><th>Producto</th><th>Cant.</th><th>Precio</th><th>Subtotal</th></tr></thead><tbody>${rows}</tbody></table><div style="text-align:right"><strong>Total: $${Number(res?.total||0).toFixed(2)}</strong></div>`;
+                    printWin.document.write(`<!doctype html><html><head><title>Comprobante</title>${style}</head><body>${content}</body></html>`);
+                    printWin.document.close(); printWin.focus(); setTimeout(()=>{ try{ printWin.print(); }catch(e){ console.error('print fallback error', e); } }, 400);
+                  }
+                }
+              }catch(e){ console.error('auto print/download error', e); }
+            }, 350);
           }catch(_){ }
-          // clear cart and close payment modal
-          POS.items = []; renderCart(); closeModal();
-          if(res && res.id) navigate('#/facturas/'+res.id);
+          // clear cart but keep modal open so user can inspect/close it manually
+          POS.items = []; renderCart();
       }catch(err){ console.error(err); const msg = err?.data?.error || err?.data || err?.message || JSON.stringify(err); showAlertToMain('Error generando venta: '+String(msg),'error'); }
     });
   }
@@ -523,12 +600,12 @@
     // Open a receipt modal (comprobante de pago) and allow TXT download or print
     function openReceiptModal(saleResp, items, clientName){
   const vendedor = saleResp?.vendedor_nombre || ((userNameEl && userNameEl.textContent) ? userNameEl.textContent : 'Vendedor');
-      const id = saleResp?.id || saleResp?._id || '?';
+  const id = saleResp?.numero || saleResp?.seq || saleResp?.short_id || saleResp?.display_id || saleResp?.id || (saleResp && saleResp._id ? (typeof saleResp._id === 'object' && saleResp._id.$oid ? saleResp._id.$oid : String(saleResp._id)) : '?');
       const total = saleResp?.total || items.reduce((s,i)=>s + (i.subtotal||0), 0);
       const recibido = saleResp?.recibido != null ? saleResp.recibido : '';
       const cambio = saleResp?.cambio != null ? saleResp.cambio : '';
       const nota = saleResp?.nota || '';
-      const fecha = (new Date()).toLocaleString();
+      const fecha = saleResp?.fecha ? formatDateIsoToLocal(saleResp.fecha) : (new Date()).toLocaleString();
 
       // build HTML receipt for display/print
       let rows = '';
@@ -668,16 +745,25 @@
       for(const p of items){
         const tr = document.createElement('tr');
         tr.innerHTML = `<td>${p.id ?? ''}</td><td>${p.codigo ?? ''}</td><td>${p.Nombre_comercial ?? ''}</td><td>${p.Precio_venta ?? ''}</td>`+
-          `<td><button class="btn small" data-edit="${p.id}">Editar</button> <button class="btn small ghost" data-delete="${p.id}">Eliminar</button></td>`;
+          `<td>` +
+            `<button class="btn icon-btn" data-edit="${p.id}" title="Editar producto" aria-label="Editar producto">` +
+              `<i class="fa-solid fa-pen" style="font-size:14px;color:#ffffff;line-height:1"></i>` +
+            `</button> ` +
+            `<button class="btn icon-btn ghost" data-delete="${p.id}" title="Eliminar producto" aria-label="Eliminar producto">` +
+              `<i class="fa-solid fa-trash" style="font-size:14px;color:#059669;line-height:1"></i>` +
+            `</button>` +
+          `</td>`;
         tbody.appendChild(tr);
       }
     }
 
     table.appendChild(thead); table.appendChild(tbody);
     const container = document.getElementById('productsList'); container.innerHTML=''; container.appendChild(table);
-    container.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', e=>{ openProductModal(e.target.dataset.edit); }));
+    // Attach handlers; use currentTarget/closest to support clicks on the SVG inside the button
+    container.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', e=>{ const btn = e.currentTarget || e.target.closest('[data-edit]'); openProductModal(btn.dataset.edit); }));
     container.querySelectorAll('[data-delete]').forEach(b=>b.addEventListener('click', async e=>{
-      const id = e.target.dataset.delete;
+      const btn = e.currentTarget || e.target.closest('[data-delete]');
+      const id = btn.dataset.delete;
       const ok = confirm('Eliminar producto?');
       if(!ok) return;
       try{ await apiFetch('/api/productos/'+id, { method: 'DELETE' }); showAlertToMain('Producto eliminado','success'); await render(); }catch(err){ showAlertToMain('Error eliminando producto','error'); }
@@ -993,12 +1079,129 @@
     main.innerHTML = `<div class="page-header"><h2>Clientes</h2></div><div id="clientsList">Cargando...</div>`;
     try{ const data = await apiFetch('/api/clientes'); const items = Array.isArray(data)?data:(data?.clientes||[]); renderClientsTable(items); }catch(e){ document.getElementById('clientsList').innerHTML = showAlert('No se pudieron cargar clientes'); }
   }
+  
+  // Usuarios (Admin-only CRUD)
+  async function renderUsuarios(){
+    // access control: only admin should reach here; applyRolePermissions will hide nav otherwise
+    main.innerHTML = `<div class="page-header"><h2>Usuarios</h2><div class="actions"><button id="btnCreateUsuario" class="btn" data-manage-users="true">Nuevo usuario</button></div></div><div id="usersList">Cargando...</div>`;
+    document.getElementById('btnCreateUsuario').addEventListener('click', ()=>{ openUserModal(); });
+    try{
+      const data = await apiFetch('/api/usuarios');
+      const users = Array.isArray(data)?data:(data?.usuarios||[]);
+      renderUsersTable(users);
+    }catch(err){ document.getElementById('usersList').innerHTML = showAlert('No se pudieron cargar usuarios'); }
+  }
+
+  function renderUsersTable(items){
+    const container = document.getElementById('usersList');
+    if(!items || !items.length){ container.innerHTML = `<div class="card">No hay usuarios registrados.</div>`; return; }
+    let html = `<table class="table"><thead><tr><th>ID</th><th>Nombre</th><th>Email</th><th>Rol</th><th>Acciones</th></tr></thead><tbody>`;
+    items.forEach(u=>{
+      const idSafe = u.id || '';
+      const nombre = u.nombre||u.name||'';
+      const email = u.email||'';
+      const rol = u.rol||u.role||'';
+      html += `<tr data-id="${idSafe}"><td>${idSafe}</td><td>${nombre}</td><td>${email}</td><td>${rol}</td><td>` +
+        `<button class="btn icon-btn" data-edit-user="${idSafe}" data-manage-users="true" title="Editar usuario" aria-label="Editar usuario">` +
+          `<i class="fa-solid fa-pen" style="font-size:14px;color:#ffffff;line-height:1"></i>` +
+        `</button> ` +
+        `<button class="btn icon-btn ghost" data-delete-user="${idSafe}" data-manage-users="true" title="Eliminar usuario" aria-label="Eliminar usuario">` +
+          `<i class="fa-solid fa-trash" style="font-size:14px;color:#059669;line-height:1"></i>` +
+        `</button>` +
+      `</td></tr>`;
+    });
+    html += `</tbody></table>`;
+    container.innerHTML = html;
+    // attach handlers using closest in case the click target is the SVG
+    container.querySelectorAll('[data-edit-user]').forEach(b=>b.addEventListener('click', (e)=>{ const btn = e.currentTarget || e.target.closest('[data-edit-user]'); openUserModal(btn.dataset.editUser); }));
+    container.querySelectorAll('[data-delete-user]').forEach(b=>b.addEventListener('click', async (e)=>{
+      const btn = e.currentTarget || e.target.closest('[data-delete-user]');
+      const id = btn.dataset.deleteUser;
+      const ok = confirm('Eliminar usuario?'); if(!ok) return;
+      try{ await apiFetch('/api/usuarios/'+id, { method: 'DELETE' }); showAlertToMain('Usuario eliminado','success'); await renderUsuarios(); }catch(err){ showAlertToMain('Error eliminando usuario','error'); }
+    }));
+  }
+
+  function openUserModal(id){
+    const isEdit = !!id;
+    const title = isEdit ? 'Editar usuario' : 'Crear usuario';
+    let user = { nombre:'', email:'', username:'', rol:'vendedor' };
+    const openForm = ()=>{
+      const html = `
+        <div class="modal-header"><h3>${title}</h3><button class="modal-close" id="modalCloseUser">×</button></div>
+        <div class="modal-body">
+          <form id="userForm">
+            <div class="form-group"><label>Nombre</label><input name="nombre" value="${user.nombre || ''}"></div>
+            <div class="form-group"><label>Email</label><input name="email" type="email" value="${user.email || ''}"></div>
+            <div class="form-group"><label>Username</label><input name="username" value="${user.username || ''}"></div>
+            <div class="form-group"><label>Rol</label>
+              <select name="rol">
+                <option value="admin" ${String(user.rol||'')==='admin' ? 'selected' : ''}>Administrador</option>
+                <!-- opción 'almacen' eliminada -->
+                <option value="vendedor" ${String(user.rol||'')==='vendedor' ? 'selected' : ''}>Vendedor</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Contraseña${isEdit? ' (dejar vacío para no cambiar)':''}</label><input name="password" type="password"></div>
+            <div class="modal-footer"><button class="btn" type="submit">Guardar</button><button class="btn ghost" type="button" id="btnCancelUser">Cancelar</button></div>
+          </form>
+        </div>`;
+      openModal(html);
+      document.getElementById('modalCloseUser').addEventListener('click', closeModal);
+      document.getElementById('btnCancelUser').addEventListener('click', closeModal);
+      document.getElementById('userForm').addEventListener('submit', async (e)=>{
+        e.preventDefault(); const fd=new FormData(e.target);
+        // Validación: el nombre no puede contener números
+        const nombreVal = (fd.get('nombre') || '').toString();
+        if(/\d/.test(nombreVal)){
+          showAlertToMain('El nombre no puede contener números','error');
+          return;
+        }
+        const payload = { nombre: nombreVal, email: fd.get('email'), username: fd.get('username'), rol: fd.get('rol') };
+        const pwd = fd.get('password'); if(pwd) payload.password = pwd;
+        try{
+          if(isEdit) await apiFetch('/api/usuarios/'+id, { method: 'PUT', body: JSON.stringify(payload) });
+          else await apiFetch('/api/usuarios', { method: 'POST', body: JSON.stringify(payload) });
+          showAlertToMain('Usuario guardado','success'); closeModal(); await renderUsuarios();
+        }catch(err){ console.error('user save error', err); showAlertToMain('Error guardando usuario','error'); }
+      });
+    };
+    if(isEdit){
+      // load user
+      (async ()=>{
+        try{ const res = await apiFetch('/api/usuarios/'+id); user = res?.usuario || user; openForm(); }catch(e){ showAlertToMain('No se pudo cargar usuario','error'); }
+      })();
+    } else {
+      openForm();
+    }
+  }
+  
+  // Configuraciones
+  async function renderConfiguraciones(){
+    // Only admins can access the configurations page by default (nav link is admin-only),
+    // but we provide a persistent toggle to control whether user management must be admin-only.
+    const currentVal = (function(){ try{ return localStorage.getItem('config_users_admin_only') === 'true'; }catch(_){ return false; } })();
+    const checked = currentVal ? 'checked' : '';
+    main.innerHTML = `<div class="page-header"><h2>Configuraciones</h2></div>`+
+      `<div class="card"><h4>Privacidad y acceso</h4><div style="display:flex;gap:12px;align-items:center;margin-top:8px"><label style="flex:1">Gestión de usuarios sólo para administradores</label><input id="cfgUsersAdminOnly" type="checkbox" ${checked}></div><div style="margin-top:12px"><button id="btnSaveConfig" class="btn">Guardar</button> <button id="btnResetConfig" class="btn ghost">Restablecer</button></div><div id="cfgMsg" style="margin-top:12px"></div></div>`;
+    document.getElementById('btnSaveConfig').addEventListener('click', ()=>{
+      try{
+        const val = !!document.getElementById('cfgUsersAdminOnly').checked;
+        localStorage.setItem('config_users_admin_only', val ? 'true' : 'false');
+        // re-apply permissions to hide/show UI as needed
+        applyRolePermissions(CURRENT_USER_ROLE);
+        const el = document.getElementById('cfgMsg'); el.innerHTML = '<div class="alert success">Guardado ✓</div>';
+      }catch(e){ const el = document.getElementById('cfgMsg'); el.innerHTML = '<div class="alert error">Error guardando</div>'; }
+    });
+    document.getElementById('btnResetConfig').addEventListener('click', ()=>{
+      try{ localStorage.removeItem('config_users_admin_only'); applyRolePermissions(CURRENT_USER_ROLE); document.getElementById('cfgUsersAdminOnly').checked = false; document.getElementById('cfgMsg').innerHTML = '<div class="alert success">Restablecido</div>'; }catch(e){ document.getElementById('cfgMsg').innerHTML = '<div class="alert error">Error</div>'; }
+    });
+  }
   function renderClientsTable(items){
     if(!items.length){ document.getElementById('clientsList').innerHTML='<p>No hay clientes.</p>'; return; }
     const table = document.createElement('table'); table.className='table';
     table.innerHTML = '<thead><tr><th>ID</th><th>Nombre</th><th>Documento</th></tr></thead>';
     const tbody = document.createElement('tbody');
-    items.forEach(c=>{ const tr=document.createElement('tr'); tr.innerHTML = `<td>${c.id}</td><td>${c.name||c.nombre}</td><td>${c.document||c.dni||''}</td>`; tbody.appendChild(tr); });
+    items.forEach(c=>{ const tr=document.createElement('tr'); tr.innerHTML = `<td>${c.id}</td><td>${c.name||c.nombre}</td><td>${c.documento||c.ci||c.dni||''}</td>`; tbody.appendChild(tr); });
     table.appendChild(tbody); document.getElementById('clientsList').innerHTML=''; document.getElementById('clientsList').appendChild(table);
   }
 
@@ -1065,10 +1268,10 @@
 
   /* ----------------- Inventarios (nuevo módulo) ----------------- */
   async function renderInventarios(route){
-    // route may be: /inventarios or /inventarios/overview|lotes|traspasos|pedidos|reportes|alertas
+    // route may be: /inventarios or /inventarios/overview|lotes|pedidos|reportes|alertas
     const parts = (route || '').split('/');
     const sub = parts[2] || 'overview';
-    main.innerHTML = `<div class="page-header"><h2>Inventarios</h2><div class="actions"><button id="btnNewTransfer" class="btn">Nuevo traspaso</button><button id="btnNewOrder" class="btn ghost">Nuevo pedido</button></div></div>`+
+    main.innerHTML = `<div class="page-header"><h2>Inventarios</h2><div class="actions"><button id="btnNewOrder" class="btn ghost">Nuevo pedido</button></div></div>`+
       `<div class="card" id="inventoryControls">
          <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
            <input id="invSearch" placeholder="Buscar por código o nombre..." style="flex:1;padding:8px;border:1px solid #ddd;border-radius:6px">
@@ -1079,24 +1282,14 @@
          <div id="inventoryTabContent"></div>
        </div>`;
 
-    document.getElementById('btnNewTransfer').addEventListener('click', ()=>openTransferModal());
     document.getElementById('btnNewOrder').addEventListener('click', ()=>openOrderModal());
   document.getElementById('btnNewProductInv').addEventListener('click', ()=>{ openProductModal(); });
     document.getElementById('invSearch').addEventListener('input', debounce(async (e)=>{ await loadInventoryOverview(e.target.value); }, 300));
 
     // create tabs
-    const tabs = [
-      {id:'overview', label:'Resumen / Kardex'},
-      {id:'lotes', label:'Lotes / Caducidades'},
-      {id:'traspasos', label:'Traspasos'},
-      {id:'pedidos', label:'Pedidos'},
-      {id:'reportes', label:'Reportes'},
-      {id:'alertas', label:'Alertas'}
-    ];
+    // Pestañas de inventario eliminadas por solicitud — se muestra sólo el contenido principal
     const tabsEl = document.getElementById('inventoryTabs');
-    tabsEl.innerHTML = tabs.map(t=>`<button class="btn small tab-btn" data-tab="${t.id}">${t.label}</button>`).join('');
-    // clicking a tab navigates to the hash so routing and active nav stay consistent
-    tabsEl.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click', (e)=>{ const id=e.target.dataset.tab; navigate('#/inventarios/'+id); }));
+    if(tabsEl) tabsEl.innerHTML = '';
 
     // load initial content based on route subpath
     switchInventoryTab(sub);
@@ -1111,7 +1304,6 @@
     try{
       if(tabId === 'overview') return await loadInventoryOverview();
       if(tabId === 'lotes') return await loadInventoryLotes();
-      if(tabId === 'traspasos') return await loadInventoryTraspasos();
       if(tabId === 'pedidos') return await loadInventoryPedidos();
       if(tabId === 'reportes') return await loadInventoryReportes();
       if(tabId === 'alertas') return await loadInventoryAlertas();
@@ -1158,16 +1350,7 @@
 
   async function loadInventoryTraspasos(){
     const content = document.getElementById('inventoryTabContent');
-    content.innerHTML = '<div class="card">Cargando traspasos...</div>';
-    try{
-      const data = await apiFetch('/api/traspasos').catch(()=>null);
-      const items = Array.isArray(data)?data:(data?.traspasos||[]);
-      let html = `<table class="table"><thead><tr><th>ID</th><th>Fecha</th><th>Origen</th><th>Destino</th><th>Items</th><th>Estado</th></tr></thead><tbody>`;
-      if(!items || !items.length) html += `<tr><td colspan="6" style="text-align:center;color:#666;padding:18px">No hay traspasos.</td></tr>`;
-      else items.forEach(it=> html += `<tr><td>${it.id||''}</td><td>${it.fecha||''}</td><td>${it.origen||''}</td><td>${it.destino||''}</td><td>${it.items?.length||0}</td><td>${it.estado||''}</td></tr>`);
-      html += '</tbody></table>';
-      content.innerHTML = html;
-    }catch(e){ content.innerHTML = `<div class="alert error">Error cargando traspasos</div>`; }
+    content.innerHTML = '<div class="card"><div class="alert muted">La funcionalidad de traspasos está deshabilitada.</div></div>';
   }
 
   async function loadInventoryPedidos(){
@@ -1233,14 +1416,11 @@
   }
 
   function openTransferModal(){
-    const html = `<div class="modal-header"><h3>Nuevo traspaso</h3><button class="modal-close" id="modalCloseTr">×</button></div><div class="modal-body"><form id="formTr"><div class="form-group"><label>Origen (sucursal id)</label><input name="origen"></div><div class="form-group"><label>Destino (sucursal id)</label><input name="destino"></div><div class="form-group"><label>Items (JSON)</label><textarea name="items">[{"producto_id":1,"cantidad":10}]</textarea></div><div class="modal-footer"><button class="btn" type="submit">Enviar</button><button class="btn ghost" type="button" id="cancelTr">Cancelar</button></div></form></div>`;
+    // transfer feature removed/disabled — show informative modal
+    const html = `<div class="modal-header"><h3>Traspasos deshabilitados</h3><button class="modal-close" id="modalCloseTr">×</button></div><div class="modal-body"><div class="alert muted">La funcionalidad de traspasos ha sido deshabilitada. Si necesitas mover stock entre sucursales, utiliza el módulo de pedidos/recepciones o contacta con el administrador.</div></div><div class="modal-footer"><button class="btn" id="btnCloseTr">Cerrar</button></div>`;
     openModal(html);
     document.getElementById('modalCloseTr').addEventListener('click', closeModal);
-    document.getElementById('cancelTr').addEventListener('click', closeModal);
-    document.getElementById('formTr').addEventListener('submit', async (e)=>{
-      e.preventDefault(); const fd = new FormData(e.target); const body = { origen: fd.get('origen'), destino: fd.get('destino'), items: JSON.parse(fd.get('items')) };
-      try{ await apiFetch('/api/traspasos', { method:'POST', body: JSON.stringify(body) }); showAlertToMain('Traspaso creado','success'); closeModal(); await switchInventoryTab('traspasos'); }catch(err){ showAlertToMain('Error creando traspaso','error'); }
-    });
+    document.getElementById('btnCloseTr').addEventListener('click', closeModal);
   }
 
   function openOrderModal(){
@@ -1264,7 +1444,9 @@
     const tbody = document.createElement('tbody');
     items.forEach(i=>{
       const tr=document.createElement('tr');
-      tr.innerHTML = `<td>${i.id}</td><td>${i.clientName||i.cliente||''}</td><td>${i.total||i.monto||''}</td><td><button class="btn ghost btnVerDetalle" data-id="${i.id}">Ver detalle</button></td>`;
+      const displayId = i.numero || i.seq || i.short_id || i.display_id || i.id || '';
+      const clientName = i.clientName||i.cliente||'';
+      tr.innerHTML = `<td>${displayId}</td><td>${clientName}</td><td>${i.total||i.monto||''}</td><td><button class="btn ghost btnVerDetalle" data-id="${i.id}">Ver detalle</button></td>`;
       tbody.appendChild(tr);
     });
     table.appendChild(thead); table.appendChild(tbody); document.getElementById('invoicesList').innerHTML=''; document.getElementById('invoicesList').appendChild(table);
@@ -1303,20 +1485,21 @@
       }catch(_){ clienteNombre = ''; }
 
       const vendedor = factura?.vendedor_nombre || factura?.id_usuario || '';
-      const fecha = factura?.fecha || '';
+        const fecha = factura?.fecha || '';
       const recibido = factura?.recibido != null ? factura.recibido : '';
       const cambio = factura?.cambio != null ? factura.cambio : '';
       const nota = factura?.nota || '';
 
       let html = `<div class="modal-header"><h3>Detalle de factura</h3><button class="modal-close" id="modalCloseFactura">×</button></div><div class="modal-body">`;
       html += `<div><strong>ID:</strong> ${facturaId}</div>`;
-      if(fecha) html += `<div><strong>Fecha:</strong> ${fecha}</div>`;
+      if(fecha) html += `<div><strong>Fecha:</strong> ${formatDateIsoToLocal(fecha)}</div>`;
       if(vendedor) html += `<div><strong>Vendedor:</strong> ${vendedor}</div>`;
       if(clienteNombre) html += `<div><strong>Cliente:</strong> ${clienteNombre}</div>`;
       html += `<table class="table"><thead><tr><th>Producto</th><th>Cantidad</th><th>Precio unitario</th><th>Subtotal</th></tr></thead><tbody>`;
       let total = 0;
       for(const d of detalles){
-        html += `<tr><td>${d.id_producto||d.producto||''}</td><td>${d.cantidad||''}</td><td>${d.precio_unitario||d.precio||''}</td><td>${d.subtotal||''}</td></tr>`;
+        const prodName = d.producto_nombre || d.producto || d.Nombre_comercial || d.producto_short_id || d.id_producto || '';
+        html += `<tr><td>${prodName}</td><td>${d.cantidad||''}</td><td>${d.precio_unitario||d.precio||''}</td><td>${d.subtotal||''}</td></tr>`;
         total += Number(d.subtotal||0);
       }
       html += `</tbody></table>`;
@@ -1349,7 +1532,7 @@
 
   // auth buttons
   btnLogin.addEventListener('click', ()=>navigate('#/login'));
-  btnLogout.addEventListener('click', async ()=>{ try{ await apiFetch('/api/logout',{ method:'POST' }); }catch(e){} setUser(null); navigate('#/login'); });
+  btnLogout.addEventListener('click', async ()=>{ try{ await apiFetch('/api/logout',{ method:'POST' }); }catch(e){} try{ localStorage.removeItem('current_user_role'); }catch(_){ } setUser(null); navigate('#/login'); });
 
   // initialize
   window.addEventListener('hashchange', render);
@@ -1383,8 +1566,17 @@
             setUser(user.nombre || user.email || user.username || 'Usuario');
             // determine role
             const role = user.role || user.rol || user.roles || user.privilegio || user.privilegios || null;
-            if(Array.isArray(role)) CURRENT_USER_ROLE = role[0]; else if(typeof role === 'string') CURRENT_USER_ROLE = role; else CURRENT_USER_ROLE = user.is_admin ? 'admin' : (user.role_name || null);
+            if(user && user.is_admin){
+              CURRENT_USER_ROLE = 'admin';
+            } else if(Array.isArray(role)){
+              CURRENT_USER_ROLE = role[0];
+            } else if(typeof role === 'string'){
+              CURRENT_USER_ROLE = role;
+            } else {
+              CURRENT_USER_ROLE = user && (user.role_name || null);
+            }
             applyRolePermissions(CURRENT_USER_ROLE);
+            try{ localStorage.setItem('current_user_role', CURRENT_USER_ROLE || ''); }catch(_){ }
             resolve(user);
           } else {
             // show simple inline message
@@ -1409,8 +1601,17 @@
       if(user){
         setUser(user.nombre || user.email || user.username || 'Usuario');
         const role = user.role || user.rol || user.roles || user.privilegio || user.privilegios || null;
-        if(Array.isArray(role)) CURRENT_USER_ROLE = role[0]; else if(typeof role === 'string') CURRENT_USER_ROLE = role; else CURRENT_USER_ROLE = user.is_admin ? 'admin' : (user.role_name || null);
+        if(user && user.is_admin){
+          CURRENT_USER_ROLE = 'admin';
+        } else if(Array.isArray(role)){
+          CURRENT_USER_ROLE = role[0];
+        } else if(typeof role === 'string'){
+          CURRENT_USER_ROLE = role;
+        } else {
+          CURRENT_USER_ROLE = user && (user.role_name || null);
+        }
         applyRolePermissions(CURRENT_USER_ROLE);
+        try{ localStorage.setItem('current_user_role', CURRENT_USER_ROLE || ''); }catch(_){ }
       } else {
         await openAuthModal();
       }

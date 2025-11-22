@@ -1,11 +1,13 @@
 # Funciones helper para clientes con SQLAlchemy
 from ..models import db, Cliente
 
-def create_cliente(nombre, ci, direccion='', telefono=''):
-    """Crear un nuevo cliente"""
+
+def create_cliente(nombre, nit='', ci='', direccion='', telefono=''):
+    """Crear un nuevo cliente. Se prioriza `nit` si está presente."""
     cliente = Cliente(
         nombre=nombre,
         ci=ci,
+        nit=nit,
         direccion=direccion,
         telefono=telefono
     )
@@ -22,6 +24,7 @@ def get_cliente(cliente_id):
         'id': cliente.id,
         'nombre': cliente.nombre,
         'ci': cliente.ci,
+        'nit': cliente.nit,
         'direccion': cliente.direccion,
         'telefono': cliente.telefono,
     }
@@ -35,6 +38,22 @@ def search_cliente_by_ci(ci):
         'id': cliente.id,
         'nombre': cliente.nombre,
         'ci': cliente.ci,
+        'nit': cliente.nit,
+        'direccion': cliente.direccion,
+        'telefono': cliente.telefono,
+    }
+
+
+def search_cliente_by_nit(nit):
+    """Buscar cliente por NIT"""
+    cliente = Cliente.query.filter_by(nit=nit).first()
+    if not cliente:
+        return None
+    return {
+        'id': cliente.id,
+        'nombre': cliente.nombre,
+        'ci': cliente.ci,
+        'nit': cliente.nit,
         'direccion': cliente.direccion,
         'telefono': cliente.telefono,
     }
@@ -48,6 +67,7 @@ def search_cliente_by_nombre(nombre):
             'id': cliente.id,
             'nombre': cliente.nombre,
             'ci': cliente.ci,
+            'nit': cliente.nit,
             'direccion': cliente.direccion,
             'telefono': cliente.telefono,
         })
@@ -62,6 +82,7 @@ def list_clientes(limit=100, skip=0):
             'id': cliente.id,
             'nombre': cliente.nombre,
             'ci': cliente.ci,
+            'nit': cliente.nit,
             'direccion': cliente.direccion,
             'telefono': cliente.telefono,
         })
