@@ -1,0 +1,12 @@
+{
+  "name": "innovfarma-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "devDependencies": {
+    "tailwindcss": "^3.4.0"
+  },
+  "scripts": {
+    "build:css": "tailwindcss -i ./src/styles.css -o ./dist/tailwind.css --minify",
+    "dev:css": "tailwindcss -i ./src/styles.css -o ./dist/tailwind.css --watch"
+  }
+}

@@ -70,6 +70,8 @@ class Product(db.Model):
     Granel = db.Column(db.Integer, default=0)
     Medicamento_controlado = db.Column(db.Integer, default=0)
     Solo_compra = db.Column(db.Integer, default=0)
+    existencia = db.Column(db.Integer, default=0)
+    vencimiento = db.Column(db.DateTime, nullable=True)
 
     def to_dict(self):
         return {
@@ -123,6 +125,7 @@ class Cliente(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(255))
     ci = db.Column(db.String(100))
+    nit = db.Column(db.String(100))
     direccion = db.Column(db.String(255))
     telefono = db.Column(db.String(100))
 
