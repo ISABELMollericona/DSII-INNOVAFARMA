@@ -27,6 +27,13 @@ if __name__ == '__main__':
         print(f"📍 URL: http://localhost:5000")
         print(f"📍 API Base: http://localhost:5000/api")
         print(f"🔧 Environment: {os.environ.get('FLASK_ENV', 'development')}")
+        # Mostrar configuración de cookies de sesión para depuración
+        try:
+            print(f"🔐 SESSION_COOKIE_DOMAIN: {app.config.get('SESSION_COOKIE_DOMAIN')}")
+            print(f"📦 SESSION_COOKIE_SAMESITE: {app.config.get('SESSION_COOKIE_SAMESITE')}")
+            print(f"🔒 SESSION_COOKIE_SECURE: {app.config.get('SESSION_COOKIE_SECURE')}")
+        except Exception:
+            pass
         print("="*70)
         print("Endpoints disponibles:")
         print("  • GET  / - Estado de la API")

@@ -12,4 +12,11 @@ class Config:
 
     # MongoDB (Flask-PyMongo)
     MONGO_URI = os.environ.get('MONGO_URI') or os.environ.get('DATABASE_URL_MONGO') or os.environ.get('MONGO_URL')
+    # Session cookie settings: allow overriding the cookie domain and flags via environment
+    # Useful in development when accessing the app by IP (e.g. 192.168.0.21)
+    SESSION_COOKIE_DOMAIN = os.environ.get('SESSION_COOKIE_DOMAIN') or None
+    # Set to 'Lax' or 'Strict' or 'None' (None requires Secure=True in browsers)
+    SESSION_COOKIE_SAMESITE = os.environ.get('SESSION_COOKIE_SAMESITE', 'Lax')
+    # In development you may want Secure=False; set to 'True' to enable
+    SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', 'False').lower() in ('1', 'true', 'yes')
 
