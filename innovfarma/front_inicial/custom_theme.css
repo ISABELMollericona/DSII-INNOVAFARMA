@@ -1,0 +1,114 @@
+:root{
+  /* Greens tuned to match InnovFarma visual (flat, modern) */
+  /* Use a single primary green for header and sidebar to keep consistency */
+  --primary: #0b5b42; /* primary color for header/sidebar */
+  --accent: #10b981;  /* accent / active indicator */
+  --sidebar-bg: #0b5b42; /* sidebar same as primary */
+  --bg: #f6f7f9;
+  --card: #ffffff;
+  --muted: #6b7280;
+  --shadow-color: rgba(16,24,40,0.06);
+}
+
+/* Reset gradients and apply modern, flat look across the app */
+body { background: var(--bg); color: #0f172a; }
+
+/* Header */
+.app-header, header, .app-header .brand { background-color: var(--primary) !important; color: #ffffff !important; box-shadow:none !important; }
+.app-header .brand { color: #ffffff !important; background-image: none !important; font-size:1.4rem !important; font-weight:900 !important; letter-spacing:0.4px; }
+.app-header .menu-toggle{ color: rgba(255,255,255,0.95) !important; }
+
+/* Sidebar: flat modern look */
+.sidebar{ background: var(--primary) !important; box-shadow: none !important; }
+.sidebar-header h3{ color: #ffffff !important; }
+.sidebar a, .sidebar nav li ul.submenu li a { color: rgba(255,255,255,0.95) !important; }
+.sidebar nav ul{ padding:12px 10px !important; }
+.sidebar a{ display:flex !important; align-items:center !important; gap:12px !important; padding:10px 14px !important; margin:6px 10px !important; border-radius:10px !important; border-left:0 !important; }
+.sidebar a i{ background: rgba(255,255,255,0.06) !important; padding:8px; border-radius:8px; color:rgba(255,255,255,0.95) !important; width:auto; height:auto; display:inline-flex; align-items:center; justify-content:center; }
+.sidebar a span{ flex:1; }
+.sidebar a:hover{ background: rgba(255,255,255,0.04) !important; transform:translateY(-1px); }
+.sidebar a.active{ background: rgba(255,255,255,0.04) !important; box-shadow: none !important; border-left:4px solid var(--accent) !important; margin-left:6px !important; }
+
+/* Ensure header and sidebar look identical: remove top border or shadows that can create a visual difference */
+.app-header, .sidebar{ border-bottom: none !important; }
+
+/* Remove fancy gradient text for brand and use solid color */
+.brand { background-image:none !important; color: #fff !important; }
+
+.btn{ background: var(--primary) !important; color: #fff !important; border:none !important; box-shadow: 0 6px 18px rgba(15,25,15,0.06); }
+.btn.ghost{ background: transparent !important; color: var(--primary) !important; border: 1px solid rgba(15,23,42,0.06) !important; box-shadow:none !important; }
+.btn.small{ padding:6px 10px !important; }
+.icon-btn.ghost{ background:transparent !important; border:none !important; }
+
+.card{ background: var(--card) !important; border-radius:12px !important; box-shadow: 0 10px 30px var(--shadow-color) !important; }
+
+/* Tables & forms: cleaner borders */
+.table th, .table td{ border:1px solid rgba(15,23,42,0.06) !important; }
+.form-group input, .form-group textarea{ border:1px solid rgba(15,23,42,0.08) !important; background: #fff; }
+
+.modal{ border-radius:14px !important; box-shadow: 0 30px 60px rgba(8,12,10,0.06) !important; }
+.modal .modal-header{ border-bottom: 1px solid rgba(15,23,42,0.06) !important; }
+.modal .modal-footer{ border-top: 1px solid rgba(15,23,42,0.06) !important; }
+
+.modal.auth-modal .auth-left, .modal > .auth-modal .auth-left{ background-image: url('assets/login.jpg') !important; background-size:cover !important; background-position:center center !important; }
+.modal.auth-modal .auth-left::after, .modal > .auth-modal .auth-left::after{ background: rgba(0,0,0,0.46) !important; mix-blend-mode: multiply !important; }
+.modal.auth-modal .auth-left .brand-overlay h1, .modal.auth-modal .auth-left .brand-overlay p{ color: #fff !important; text-shadow:none !important; }
+.modal.auth-modal .auth-right > .card{ border-radius:12px !important; }
+.modal.auth-modal .auth-right .submit-row .btn{ background: var(--primary) !important; box-shadow: none !important; }
+
+/* Receipt modal specific styles */
+.modal.receipt-modal{ max-width:980px !important; min-width:640px; padding:0; }
+.modal.receipt-modal .modal-header{ padding:18px 22px; border-bottom:1px solid rgba(15,23,42,0.04); }
+.modal.receipt-modal .modal-body.receipt-body{ display:flex; gap:20px; padding:18px; align-items:flex-start }
+.modal.receipt-modal .receipt-content{ flex:1; font-family:Inter, system-ui, -apple-system, Helvetica, Arial; color:var(--text, #0f172a); }
+.modal.receipt-modal .receipt-table-wrap{ margin-top:12px; border-radius:10px; overflow:hidden; border:1px solid rgba(15,23,42,0.06); background:#fff }
+.modal.receipt-modal .receipt-table{ width:100%; border-collapse:collapse }
+.modal.receipt-modal .receipt-table thead th{ background:linear-gradient(180deg,#fbfbfb,#fff); padding:10px; text-align:left; font-weight:700; color:#111 }
+.modal.receipt-modal .receipt-table tbody td{ padding:10px; border-bottom:1px solid rgba(15,23,42,0.04); color:#0b1724 }
+.modal.receipt-modal .receipt-summary{ display:flex; justify-content:space-between; gap:12px; margin-top:12px; align-items:center }
+.modal.receipt-modal .receipt-actions{ width:260px; }
+.modal.receipt-modal .actions-card{ background:linear-gradient(180deg,#ffffff,#fbfdff); padding:14px; border-radius:10px; box-shadow:0 8px 30px rgba(15,23,42,0.04); border:1px solid rgba(15,23,42,0.04); }
+.modal.receipt-modal .actions-card .btn{ width:100%; display:inline-flex; justify-content:center; align-items:center }
+.modal.receipt-modal .btn.action-pill{ border-radius:999px; padding:12px 20px; font-weight:800; }
+.modal.receipt-modal .btn.action-ghost{ border-radius:12px; padding:10px 14px; font-weight:700; }
+.modal.receipt-modal .summary-right{ text-align:right }
+.modal.receipt-modal .summary-right .total{ font-weight:900; font-size:1.15rem }
+.modal.receipt-modal .modal-footer{ display:block; padding:10px 18px; background:transparent; border-top:0 }
+
+@media (max-width:900px){
+  .modal.receipt-modal{ min-width:unset; width:96% }
+  .modal.receipt-modal .modal-body.receipt-body{ flex-direction:column }
+  .modal.receipt-modal .receipt-actions{ width:100% }
+}
+
+/* Ensure nav-link active look is flat */
+.nav-link.active, .nav-link[aria-current=true]{ background-color: rgba(255,255,255,0.04) !important; box-shadow: none !important; border-left:4px solid var(--accent) !important; }
+
+/* Small responsive tweaks for the theme */
+@media (max-width:900px){
+  .sidebar{ box-shadow: none !important; }
+  .content{ padding-left:16px !important; }
+}
+
+/* Accessibility: focus states */
+a:focus, button:focus, input:focus { outline: 3px solid rgba(37,99,235,0.18); outline-offset: 2px; }
+
+/* Tone down deep shadows on small elements */
+.pos-cart, .pos-products{ box-shadow: 0 8px 20px rgba(15,23,42,0.06) !important; }
+
+/* Keep distilled look for badges */
+.user-badge{ background: rgba(255,255,255,0.06) !important; color: #fff !important; }
+
+/* Global loader overlay (centered animated dots) */
+#globalLoader{ position:fixed; inset:0; pointer-events:none; z-index:9999; }
+.global-loader-overlay{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background: rgba(2,6,23,0.45); opacity:0; visibility:hidden; transition:opacity .22s ease, visibility .22s; }
+.global-loader-overlay.visible{ opacity:1; visibility:visible; pointer-events:auto; }
+.global-loader{ display:flex; gap:10px; align-items:center; background: rgba(255,255,255,0.02); padding:14px 18px; border-radius:12px; box-shadow: 0 10px 30px rgba(2,6,23,0.28); }
+.global-loader .dot{ width:12px; height:12px; border-radius:50%; background:var(--accent); transform:scale(0.8); animation:dotPulse 1s infinite ease-in-out; }
+.global-loader .dot:nth-child(2){ animation-delay:0.12s; }
+.global-loader .dot:nth-child(3){ animation-delay:0.24s; }
+@keyframes dotPulse{ 0%{ transform:scale(0.6); opacity:0.6; } 50%{ transform:scale(1.15); opacity:1; } 100%{ transform:scale(0.6); opacity:0.6; } }
+.global-loader .loader-text{ margin-left:10px;color:#fff;font-weight:700;font-size:0.95rem }
+
+/* Respect reduced-motion */
+@media (prefers-reduced-motion: reduce){ .global-loader .dot{ animation: none; } }

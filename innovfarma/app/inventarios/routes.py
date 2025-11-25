@@ -108,7 +108,7 @@ def create_lote():
         qty = lote.get('cantidad', 0)
         if pid and qty:
             try:
-                from bson.objectid import ObjectId
+                from bson import ObjectId
                 db.productos.update_one({'_id': ObjectId(pid)}, {'$inc': {'existencia': qty}})
             except Exception:
                 db.productos.update_one({'id': pid}, {'$inc': {'existencia': qty}})
@@ -338,7 +338,7 @@ def get_pedido(pedido_id):
     if db is None:
         return jsonify({'error': 'MongoDB no inicializado'}), 500
     try:
-        from bson.objectid import ObjectId
+        from bson import ObjectId
         doc = db.pedidos.find_one({'_id': ObjectId(pedido_id)})
     except Exception:
         doc = db.pedidos.find_one({'id': pedido_id})
@@ -361,7 +361,7 @@ def update_pedido_estado(pedido_id):
         return jsonify({'error': 'MongoDB no inicializado'}), 500
 
     try:
-        from bson.objectid import ObjectId
+        from bson import ObjectId
         oid = ObjectId(pedido_id)
         pedido = db.pedidos.find_one({'_id': oid})
     except Exception:
@@ -382,7 +382,7 @@ def update_pedido_estado(pedido_id):
                 if not prod_id or qty <= 0:
                     continue
                 try:
-                    from bson.objectid import ObjectId
+                    from bson import ObjectId
                     db.productos.update_one({'_id': ObjectId(prod_id)}, {'$inc': {'existencia': qty}})
                 except Exception:
                     db.productos.update_one({'id': prod_id}, {'$inc': {'existencia': qty}})

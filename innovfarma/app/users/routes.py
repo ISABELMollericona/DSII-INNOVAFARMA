@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from ..mongo_models import get_db, find_user_by_id, create_user
 from werkzeug.security import generate_password_hash
-from bson.objectid import ObjectId
+from bson import ObjectId
 import re
 
 users_bp = Blueprint('users', __name__)

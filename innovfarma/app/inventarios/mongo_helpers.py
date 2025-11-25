@@ -4,7 +4,7 @@ Por ahora delegan en `app.mongo_models` y exponen funciones convenientes
 para futuras operaciones: ajustar stock, registrar lotes, etc.
 """
 from .. import mongo_models
-from bson.objectid import ObjectId
+from bson import ObjectId
 from bson.errors import InvalidId
 from typing import Any, Dict, List
 

@@ -1,9 +1,25 @@
-/*
+﻿/*
   front_inicial SPA (vanilla JS)
   Routes (hash): #/inicio, #/productos, #/productos/create, #/productos/edit/:id, #/clientes, #/facturas, #/login
 */
 (function(){
   const main = document.getElementById('pageContent');
+  // If running inside Electron (preload exposes electronAPI), route external links
+  try{
+    if(window && window.electronAPI){
+      document.addEventListener('click', (e)=>{
+        try{
+          const a = e.target.closest && e.target.closest('a');
+          if(a && a.href && String(a.href).startsWith('http')){
+            e.preventDefault();
+            window.electronAPI.openExternal(a.href);
+          }
+        }catch(_){ }
+      });
+      // mark UI to allow CSS tweaks if needed
+      document.documentElement.setAttribute('data-electron', 'true');
+    }
+  }catch(_){ }
   const userNameEl = document.getElementById('userName');
   const btnLogin = document.getElementById('btnLogin');
   const btnLogout = document.getElementById('btnLogout');
@@ -66,6 +82,19 @@
   setMenuButtonState();
 
   // Simple API wrapper (session-based auth: send cookies)
+  // Determine a base URL for API calls when running in Electron or when loaded via file://
+  const API_BASE = (function(){
+    try{
+      if(typeof window !== 'undefined' && window.electronAPI && window.electronAPI.env && window.electronAPI.env.backendUrl){
+        return String(window.electronAPI.env.backendUrl).replace(/\/$/, '');
+      }
+      // when loaded via file:// assume a local backend on 5000 (common for this project)
+      if(typeof window !== 'undefined' && window.location && window.location.protocol === 'file:'){
+        return 'http://localhost:5000';
+      }
+    }catch(_){ }
+    return '';
+  })();
   async function apiFetch(path, options={}){
     options = Object.assign({}, options);
     // ensure we send credentials (cookies) for session auth
@@ -83,7 +112,15 @@
         throw { status: 403, data: { error: 'Gestión de usuarios reservada a administradores (configuración activa).' } };
       }
     }catch(_){ }
-    const res = await fetch(path, options);
+    // If path is a relative /api route and we have an API_BASE, prefix it
+    let target = path;
+    try{
+      if(API_BASE && String(path||'').startsWith('/')){
+        // do not double-prefix if path already looks like a full URL
+        if(!/^https?:\/\//i.test(path)) target = API_BASE + path;
+      }
+    }catch(_){ }
+    const res = await fetch(target, options);
     if(res.status === 204) return null;
     const data = await res.json().catch(()=>null);
     if(!res.ok) throw { status: res.status, data };
@@ -192,7 +229,7 @@
       `<div class="pos-layout pos-layout-vertical">
          <div class="pos-products card">
            <div style="display:flex;gap:8px;margin-bottom:8px">
-             <select id="posFilterType" style="padding:8px;border:1px solid #ddd;border-radius:6px"><option value="all">Todos los productos</option></select>
+             
              <input id="posSearch" placeholder="Buscar productos (código/nombre)" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:6px"> 
              <button id="posScan" class="btn small">Buscar</button>
             <button id="posToggleDebug" class="btn small ghost" title="Mostrar respuesta cruda">Debug</button>
@@ -276,7 +313,7 @@
       console.error('[ERROR loadPosProducts]', e);
       // show detailed error in UI and in debug pre so user can copy it
       const msg = (e && e.message) ? e.message : (typeof e === 'string' ? e : JSON.stringify(e));
-      wrap.innerHTML = `<div class="alert error">Error cargando productos: ${String(msg).replace(/</g,'&lt;')}</div>`;
+      wrap.innerHTML = `<div class="alert error">Error cargando productos: producto no encontrado</div>`;
       try{
         const dbgPre = document.getElementById('posDebug');
         if(dbgPre){ dbgPre.style.display = 'block'; dbgPre.textContent = 'ERROR DETAILS:\n' + (e && e.data ? JSON.stringify(e.data, null, 2) : '') + '\n' + (e && e.stack ? e.stack : (typeof e === 'object' ? JSON.stringify(e, null, 2) : String(e))); }
@@ -324,11 +361,11 @@
   function addToCart(item){
     // enforce existencia (stock) when adding to cart
     const existencia = Number(item.existencia ?? 0);
-    if(existencia <= 0){ alert('No hay existencia disponible para este producto'); return; }
+    if(existencia <= 0){ mostrarModalExistencia(0); return; }
     const existing = POS.items.find(i=>String(i.id_producto) === String(item.id_producto));
     if(existing){
       const newQty = (existing.cantidad||0) + (item.cantidad||1);
-      if(newQty > existencia){ alert('Cantidad solicitada supera la existencia disponible. Se limitará a la existencia.'); existing.cantidad = existencia; }
+      if(newQty > existencia){ mostrarModalExistencia(existencia); existing.cantidad = existencia; }
       else existing.cantidad = newQty;
       existing.subtotal = existing.cantidad * existing.precio_unitario;
     } else {
@@ -343,7 +380,7 @@
   function renderCart(){
     const container = document.getElementById('cartContainer');
     if(!container) return;
-    if(!POS.items.length){ container.innerHTML = `<div class="muted">Carrito vacío. Agrega productos desde la izquierda.</div>`; return; }
+    if(!POS.items.length){ container.innerHTML = `<div class="muted">Carrito vacío. Agrega productos con doble click.</div>`; return; }
     let html = `<table class="cart-table"><thead><tr><th>Producto</th><th style="width:80px">Cant.</th><th style="width:120px">Precio</th><th style="width:100px">Subtotal</th><th style="width:80px">Acciones</th></tr></thead><tbody>`;
     for(const it of POS.items){ html += `<tr><td>${it.nombre||''}</td><td><input type="number" min="1" value="${it.cantidad||1}" data-id="${it.id_producto}" class="cart-qty" style="width:70px;padding:6px;border:1px solid #ddd;border-radius:6px"></td><td>$${(it.precio_unitario||0).toFixed(2)}</td><td>$${(it.subtotal||0).toFixed(2)}</td><td><button class="btn small" data-remove="${it.id_producto}">Quitar</button></td></tr>`; }
     html += `</tbody></table>`;
@@ -355,7 +392,10 @@
       const id = e.target.dataset.id; let val = parseInt(e.target.value)||1; const it = POS.items.find(x=>String(x.id_producto)===String(id));
       if(it){
         const max = Number(it.existencia ?? 0);
-        if(val > max){ alert('La cantidad supera la existencia disponible. Se limitará a ' + max); val = max; e.target.value = String(max); }
+        if(val > max){ mostrarModalExistencia(max); val = max; e.target.value = String(max); }
+        // Modal para advertencia de existencia en carrito
+        // Use the global helpers mostrarModalExistencia / cerrarModalExistencia
+        // (functions declared at IIFE top-level) so the modal button always works.
         if(val < 1) { val = 1; e.target.value = '1'; }
         it.cantidad = val; it.subtotal = it.cantidad * it.precio_unitario; renderCart();
       }
@@ -613,29 +653,64 @@
 
       const html = `
         <div class="modal-header"><h3>Comprobante de pago</h3><button class="modal-close" id="receiptClose">×</button></div>
-        <div class="modal-body">
-          <div style="font-family:monospace;">
-            <div><strong>Comprobante ID:</strong> ${id}</div>
-            <div><strong>Fecha:</strong> ${fecha}</div>
-            <div><strong>Vendedor:</strong> ${vendedor}</div>
-            <div><strong>Cliente:</strong> ${clientName || '-'}</div>
-            <table style="width:100%;margin-top:8px;border-collapse:collapse">
-              <thead><tr><th style="text-align:left">Producto</th><th style="width:60px">Cant.</th><th style="width:120px;text-align:right">Precio</th><th style="width:120px;text-align:right">Subtotal</th></tr></thead>
-              <tbody>${rows}</tbody>
-            </table>
-            <div style="margin-top:8px;text-align:right"><strong>Total: $${Number(total||0).toFixed(2)}</strong></div>
-            <div><strong>Recibido:</strong> $${recibido}</div>
-            <div><strong>Cambio:</strong> $${cambio}</div>
-            <div><strong>Nota:</strong> ${nota}</div>
+        <div class="modal-body receipt-body">
+          <div class="receipt-content">
+            <div class="receipt-header">
+              <div>
+                <div style="font-weight:700;">Comprobante ID: <span style="font-weight:900">${id}</span></div>
+                <div style="color:var(--muted);margin-top:6px">Fecha: ${fecha}</div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-weight:700">Vendedor</div>
+                <div style="color:var(--muted);margin-top:6px">${vendedor}</div>
+                <div style="margin-top:10px;color:var(--muted)">Cliente: ${clientName || '-'}</div>
+              </div>
+            </div>
+
+            <div class="receipt-table-wrap">
+              <table class="receipt-table">
+                <thead>
+                  <tr><th style="text-align:left">Producto</th><th style="width:60px;text-align:center">Cant.</th><th style="width:110px;text-align:right">Precio</th><th style="width:110px;text-align:right">Subtotal</th></tr>
+                </thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </div>
+
+            <div class="receipt-summary">
+              <div class="summary-left">
+                <div style="color:var(--muted)">Recibido</div>
+                <div style="font-weight:700">$${Number(recibido||0).toFixed(2)}</div>
+              </div>
+              <div class="summary-right">
+                <div style="color:var(--muted)">Total</div>
+                <div style="font-weight:900;font-size:1.1rem">$${Number(total||0).toFixed(2)}</div>
+                <div style="margin-top:6px;color:var(--muted)">Cambio: $${Number(cambio||0).toFixed(2)}</div>
+              </div>
+            </div>
+
+            ${nota ? `<div style="margin-top:12px;color:var(--muted)"><strong>Nota:</strong> ${nota}</div>` : ''}
           </div>
+
+          <aside class="receipt-actions">
+            <div class="actions-card">
+              <div style="font-weight:700;margin-bottom:8px">Opciones</div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <button id="btnDownloadTxt" class="btn action-pill">Descargar TXT</button>
+                <button id="btnPrintPdf" class="btn action-ghost">Imprimir / Guardar PDF</button>
+                <button id="btnCloseReceipt" class="btn ghost">Cerrar</button>
+              </div>
+            </div>
+          </aside>
+
         </div>
-        <div class="modal-footer">
-          <button id="btnDownloadTxt" class="btn">Descargar TXT</button>
-          <button id="btnPrintPdf" class="btn ghost">Imprimir / Guardar como PDF</button>
-          <button id="btnCloseReceipt" class="btn ghost">Cerrar</button>
-        </div>
+        <div class="modal-footer"></div>
       `;
       openModal(html);
+      // Add receipt-modal class so we can style it separately from auth-modal
+      try{
+        const rootModal = document.querySelector('#modalRoot .modal');
+        if(rootModal){ rootModal.classList.remove('auth-modal'); rootModal.classList.add('receipt-modal','modern'); }
+      }catch(_){ }
       document.getElementById('receiptClose').addEventListener('click', closeModal);
       document.getElementById('btnCloseReceipt').addEventListener('click', closeModal);
 
@@ -783,16 +858,65 @@
     document.body.classList.remove('modal-open');
   }
 
+  // Modal helper: show a stock-exceeded warning modal and provide a safe, attachable close handler.
+  // We create these as top-level functions so other modules (addToCart / renderCart) can call them reliably.
+  function mostrarModalExistencia(max){
+    try{
+      // Use the global openModal helper so styles, overlay and close behaviour are consistent
+      const body = `
+        <div class="modal-header"><h3>Advertencia</h3><button class="modal-close" id="modalExistenciaClose">×</button></div>
+        <div class="modal-body">
+          <div class="modal-card" style="text-align:center;">
+            <p style="margin:0 0 8px 0;font-size:1.05rem;color:#111;font-weight:600">La cantidad supera la existencia disponible.</p>
+            <p style="margin:0 0 14px;color:#444">Se limitará a <strong id='modalExistenciaMax'>${max}</strong>.</p>
+            <div style="display:flex;justify-content:center;gap:8px"><button id="modalExistenciaAceptar" class="btn primary">Aceptar</button></div>
+          </div>
+        </div>
+      `;
+      openModal(body);
+      // Add visual marker for modern style
+      const rootModal = document.querySelector('#modalRoot .modal'); if(rootModal) rootModal.classList.add('modern','warning');
+      // wire events
+      const btn = document.getElementById('modalExistenciaAceptar'); if(btn) btn.addEventListener('click', closeModal);
+      const closeX = document.getElementById('modalExistenciaClose'); if(closeX) closeX.addEventListener('click', closeModal);
+    }catch(_){ }
+  }
+
+  function cerrarModalExistencia(){
+    // Prefer using closeModal (cleans modalRoot). Kept for backwards compat.
+    try{ closeModal(); }catch(_){ }
+  }
+
   function openModal(html){
     const root = document.getElementById('modalRoot');
-    root.innerHTML = `
-      <div class="modal-overlay" onclick="(function(e){ if(e.target.classList && e.target.classList.contains('modal-overlay')){ document.querySelector('#modalRoot') && document.querySelector('#modalRoot').__close && document.querySelector('#modalRoot').__close(); } })(event)"></div>
-      <div class="modal" role="dialog" aria-modal="true">${html}</div>
-    `;
+    // Build DOM nodes and attach overlay listener instead of inline onclick
+    root.innerHTML = '';
+    const overlay = document.createElement('div'); overlay.className = 'modal-overlay';
+    overlay.addEventListener('click', (e)=>{ if(e.target.classList && e.target.classList.contains('modal-overlay')){ root && root.__close && root.__close(); } });
+    const modalEl = document.createElement('div'); modalEl.className = 'modal'; modalEl.setAttribute('role','dialog'); modalEl.setAttribute('aria-modal','true');
+    modalEl.innerHTML = html;
+    root.appendChild(overlay); root.appendChild(modalEl);
     root.setAttribute('aria-hidden','false');
     document.body.classList.add('modal-open');
     // attach close helper
     root.__close = closeModal;
+    // If modal content contains a top-level wrapper like <div class="auth-modal">,
+    // propagate that state to the .modal container so CSS selectors like .modal.auth-modal apply.
+    try{
+      const modalEl = root.querySelector('.modal');
+      if(modalEl){
+        // If the inner HTML contains an element with class auth-modal (our template uses <div class="auth-modal">)
+        if(modalEl.querySelector('.auth-modal')) modalEl.classList.add('auth-modal');
+        // If present, set inline background to the auth-left element using the absolute site path
+        const authLeft = modalEl.querySelector('.auth-left');
+        if(authLeft){
+          // use relative path so this works both when served by a server and when opened via file:// (Electron)
+          authLeft.style.backgroundImage = `url("assets/login.jpg")`;
+          authLeft.style.backgroundSize = 'cover';
+          authLeft.style.backgroundPosition = 'center center';
+        }
+      }
+    }catch(_){ }
   }
 
   async function openProductModal(id, prefill){
@@ -1079,6 +1203,42 @@
     main.innerHTML = `<div class="page-header"><h2>Clientes</h2></div><div id="clientsList">Cargando...</div>`;
     try{ const data = await apiFetch('/api/clientes'); const items = Array.isArray(data)?data:(data?.clientes||[]); renderClientsTable(items); }catch(e){ document.getElementById('clientsList').innerHTML = showAlert('No se pudieron cargar clientes'); }
   }
+
+  // Modal to create/edit a client
+  function openClientModal(id){
+    const isEdit = !!id;
+    let client = { nombre:'', ci:'', telefono:'', direccion:'' };
+    const openForm = ()=>{
+      const html = `
+        <div class="modal-header"><h3>${isEdit? 'Editar' : 'Crear'} Cliente</h3><button class="modal-close" id="clientModalClose">×</button></div>
+        <div class="modal-body">
+          <div class="modal-card">
+            <form id="clientForm">
+              <div class="form-group"><label>Nombre o Razón social</label><input name="nombre" value="${(client.nombre||'').replace(/"/g,'&quot;')}"></div>
+              <div class="form-row"><div class="form-group"><label>Documento (CI/DNI)</label><input name="ci" value="${(client.ci||'').replace(/"/g,'&quot;')}"></div><div class="form-group"><label>Teléfono</label><input name="telefono" value="${(client.telefono||'').replace(/"/g,'&quot;')}"></div></div>
+              <div class="form-group"><label>Dirección</label><input name="direccion" value="${(client.direccion||'').replace(/"/g,'&quot;')}"></div>
+              <div class="modal-footer"><button type="submit" class="btn">Guardar cliente</button><button type="button" id="clientCancel" class="btn ghost">Cancelar</button></div>
+            </form>
+          </div>
+        </div>`;
+      openModal(html);
+      // style the current modal as modern
+      try{ const rm = document.querySelector('#modalRoot .modal'); if(rm) rm.classList.add('modern'); }catch(_){ }
+      document.getElementById('clientModalClose').addEventListener('click', closeModal);
+      document.getElementById('clientCancel').addEventListener('click', closeModal);
+      document.getElementById('clientForm').addEventListener('submit', async (e)=>{
+        e.preventDefault(); const fd = new FormData(e.target);
+        const payload = { nombre: fd.get('nombre'), ci: fd.get('ci'), telefono: fd.get('telefono'), direccion: fd.get('direccion') };
+        try{
+          if(isEdit) await apiFetch('/api/clientes/'+id, { method:'PUT', body: JSON.stringify(payload) });
+          else await apiFetch('/api/clientes', { method:'POST', body: JSON.stringify(payload) });
+          showAlertToMain('Cliente guardado','success'); closeModal(); await renderClientes();
+        }catch(err){ console.error('client save error', err); showAlertToMain('Error guardando cliente','error'); }
+      });
+    };
+    if(isEdit){ (async ()=>{ try{ const res = await apiFetch('/api/clientes/'+id); client = res || client; openForm(); }catch(e){ showAlertToMain('No se pudo cargar cliente','error'); } })(); }
+    else openForm();
+  }
   
   // Usuarios (Admin-only CRUD)
   async function renderUsuarios(){
@@ -1197,12 +1357,22 @@
     });
   }
   function renderClientsTable(items){
-    if(!items.length){ document.getElementById('clientsList').innerHTML='<p>No hay clientes.</p>'; return; }
-    const table = document.createElement('table'); table.className='table';
-    table.innerHTML = '<thead><tr><th>ID</th><th>Nombre</th><th>Documento</th></tr></thead>';
+    const holder = document.getElementById('clientsList');
+    if(!items || !items.length){ holder.innerHTML = '<div class="card clients-empty">No hay clientes.</div>'; return; }
+    const table = document.createElement('table'); table.className='table clients-table';
+    table.innerHTML = '<thead><tr><th style="width:38%">ID</th><th style="width:34%">Nombre</th><th style="width:28%">Documento</th></tr></thead>';
     const tbody = document.createElement('tbody');
-    items.forEach(c=>{ const tr=document.createElement('tr'); tr.innerHTML = `<td>${c.id}</td><td>${c.name||c.nombre}</td><td>${c.documento||c.ci||c.dni||''}</td>`; tbody.appendChild(tr); });
-    table.appendChild(tbody); document.getElementById('clientsList').innerHTML=''; document.getElementById('clientsList').appendChild(table);
+    items.forEach(c=>{
+      const id = c.id || c._id || '';
+      const nombre = c.nombre || c.name || '';
+      const documento = c.documento || c.ci || c.dni || '';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td class="col-id">${id}</td><td class="col-name">${nombre}</td><td class="col-doc">${documento}</td>`;
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody); holder.innerHTML=''; holder.appendChild(table);
+    // attach actions
+    // No CRUD actions: table is read-only as requested
   }
 
   async function renderFacturas(){
@@ -1258,12 +1428,72 @@
     document.getElementById('formProv').addEventListener('submit', async (e)=>{ e.preventDefault(); const fd=new FormData(e.target); const body = { nombre: fd.get('nombre'), contacto: fd.get('contacto'), telefono: fd.get('telefono') }; try{ await apiFetch('/api/proveedores', { method:'POST', body: JSON.stringify(body) }); showAlertToMain('Proveedor creado','success'); closeModal(); await loadProveedoresList(); }catch(err){ showAlertToMain('Error creando proveedor','error'); } });
   }
 
-  function openNewCompraModal(){
-    const html = `<div class="modal-header"><h3>Registrar compra</h3><button class="modal-close" id="modalCloseComp">×</button></div><div class="modal-body"><form id="formComp"><div class="form-group"><label>Proveedor (id)</label><input name="proveedor_id"></div><div class="form-group"><label>Items (JSON)</label><textarea name="items">[{"id_producto":"", "cantidad":1, "precio_unitario":0}]</textarea></div><div class="form-group"><label>Total</label><input name="total" type="number" step="0.01" value="0"></div><div class="modal-footer"><button class="btn" type="submit">Registrar</button><button class="btn ghost" type="button" id="cancelComp">Cancelar</button></div></form></div>`;
-    openModal(html);
+  async function openNewCompraModal(){
+    openModal(`<div class="modal-header"><h3>Registrar compra</h3><button class="modal-close" id="modalCloseComp">×</button></div><div class="modal-body" id="compraModalBody"><div class="card">Cargando productos...</div></div>`);
     document.getElementById('modalCloseComp').addEventListener('click', closeModal);
+    document.getElementById('cancelComp')?.addEventListener('click', closeModal);
+    // Obtener productos existentes
+    let productos = [];
+    try {
+      const data = await apiFetch('/api/productos').catch(()=>null);
+      productos = normalizeProducts(data);
+    } catch(e){}
+    let prodOptions = productos.map(p=>{
+      let stock = (p.existencia ?? p.stock ?? p.cantidad ?? 0);
+      return `<option value='${p.id||p._id}'>${p.Nombre_comercial||p.nombre||p.codigo||'Sin nombre'} (Stock: ${stock})</option>`;
+    }).join('');
+    let html = `<form id="formComp">
+      <div class="form-group"><label>Productos</label>
+        <div id="compraItems">
+          <div class="compra-item-row">
+            <select name="id_producto[]" required>${prodOptions}</select>
+            <input type="number" name="cantidad[]" min="1" value="1" style="width:80px" required>
+            <input type="number" name="precio_unitario[]" min="0" step="0.01" value="0" style="width:100px" placeholder="Precio unitario">
+            <button type="button" class="btn ghost btnAddCompraItem">+</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-group"><label>Total</label><input name="total" type="number" step="0.01" value="0"></div>
+      <div class="modal-footer"><button class="btn" type="submit">Registrar</button><button class="btn ghost" type="button" id="cancelComp">Cancelar</button></div>
+    </form>`;
+    document.getElementById('compraModalBody').innerHTML = html;
     document.getElementById('cancelComp').addEventListener('click', closeModal);
-    document.getElementById('formComp').addEventListener('submit', async (e)=>{ e.preventDefault(); const fd=new FormData(e.target); const body = { proveedor_id: fd.get('proveedor_id'), items: JSON.parse(fd.get('items')||'[]'), total: parseFloat(fd.get('total')||0) }; try{ await apiFetch('/api/compras', { method:'POST', body: JSON.stringify(body) }); showAlertToMain('Compra registrada','success'); closeModal(); await loadComprasList(); }catch(err){ showAlertToMain('Error registrando compra','error'); } });
+    // Añadir funcionalidad para agregar más productos
+    document.querySelector('#compraItems').addEventListener('click', function(e){
+      if(e.target.classList.contains('btnAddCompraItem')){
+        e.preventDefault();
+        const row = document.createElement('div');
+        row.className = 'compra-item-row';
+        row.innerHTML = `<select name='id_producto[]' required>${prodOptions}</select> <input type='number' name='cantidad[]' min='1' value='1' style='width:80px' required> <input type='number' name='precio_unitario[]' min='0' step='0.01' value='0' style='width:100px' placeholder='Precio unitario'> <button type='button' class='btn ghost btnRemoveCompraItem'>-</button>`;
+        this.appendChild(row);
+      }
+      if(e.target.classList.contains('btnRemoveCompraItem')){
+        e.preventDefault();
+        e.target.parentElement.remove();
+      }
+    });
+    // Enviar compra
+    document.getElementById('formComp').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const id_productos = fd.getAll('id_producto[]');
+      const cantidades = fd.getAll('cantidad[]');
+      const precios = fd.getAll('precio_unitario[]');
+      const items = id_productos.map((id, i)=>({ id_producto: id, cantidad: parseInt(cantidades[i]), precio_unitario: parseFloat(precios[i]) }));
+      const total = parseFloat(fd.get('total')||0);
+      const body = { items, total };
+      try{
+        await apiFetch('/api/compras', { method:'POST', body: JSON.stringify(body) });
+        showAlertToMain('Compra registrada','success');
+        closeModal();
+        await loadComprasList();
+        // refrescar inventario/productos si la vista está presente
+        try{ if(typeof loadInventoryOverview === 'function') await loadInventoryOverview(); }catch(_){ }
+      }catch(err){
+        const msg = (err && err.data && (err.data.error || err.data.message)) || err?.message || 'Error registrando compra';
+        showAlertToMain(msg,'error');
+      }
+    });
   }
 
   /* ----------------- Inventarios (nuevo módulo) ----------------- */
@@ -1275,7 +1505,7 @@
       `<div class="card" id="inventoryControls">
          <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
            <input id="invSearch" placeholder="Buscar por código o nombre..." style="flex:1;padding:8px;border:1px solid #ddd;border-radius:6px">
-           <select id="invSucursalFilter" style="padding:8px;border:1px solid #ddd;border-radius:6px"><option value="">Todas las sucursales</option></select>
+           
            <button id="btnNewProductInv" class="btn small">Nuevo producto</button>
          </div>
          <div id="inventoryTabs" class="inventory-tabs" style="margin-bottom:12px"></div>
@@ -1305,8 +1535,7 @@
       if(tabId === 'overview') return await loadInventoryOverview();
       if(tabId === 'lotes') return await loadInventoryLotes();
       if(tabId === 'pedidos') return await loadInventoryPedidos();
-      if(tabId === 'reportes') return await loadInventoryReportes();
-      if(tabId === 'alertas') return await loadInventoryAlertas();
+    
     }catch(e){ content.innerHTML = `<div class="alert error">Error al cargar: ${e?.data?.error || e.message || JSON.stringify(e)}</div>`; }
   }
 
@@ -1359,12 +1588,78 @@
     try{
       const data = await apiFetch('/api/pedidos').catch(()=>null);
       const items = Array.isArray(data)?data:(data?.pedidos||[]);
-      let html = `<table class="table"><thead><tr><th>ID</th><th>Proveedor</th><th>Fecha</th><th>Items</th><th>Estado</th></tr></thead><tbody>`;
+      let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><h3>Pedidos</h3><button class="btn" id="btnNuevoPedido"><i class="fa fa-plus"></i> Nuevo pedido</button></div>`;
+      html += `<table class="table"><thead><tr><th>ID</th><th>Proveedor</th><th>Fecha</th><th>Items</th><th>Estado</th></tr></thead><tbody>`;
       if(!items || !items.length) html += `<tr><td colspan="5" style="text-align:center;color:#666;padding:18px">No hay pedidos.</td></tr>`;
       else items.forEach(it=> html += `<tr><td>${it.id||''}</td><td>${it.proveedor||''}</td><td>${it.fecha||''}</td><td>${it.items?.length||0}</td><td>${it.estado||''}</td></tr>`);
       html += '</tbody></table>';
       content.innerHTML = html;
+      document.getElementById('btnNuevoPedido').addEventListener('click', openNuevoPedidoModal);
     }catch(e){ content.innerHTML = `<div class="alert error">Error cargando pedidos</div>`; }
+    // Modal para crear nuevo pedido con productos existentes
+    async function openNuevoPedidoModal(){
+      openModal(`<div class="modal-header"><h3>Nuevo pedido a proveedor</h3><button class="modal-close" id="modalClosePo">×</button></div><div class="modal-body" id="nuevoPedidoBody"><div class="card">Cargando productos y proveedores...</div></div>`);
+      document.getElementById('modalClosePo').addEventListener('click', closeModal);
+      // Obtener productos existentes
+      let productos = [];
+      let proveedores = [];
+      try {
+        const prodData = await apiFetch('/api/productos').catch(()=>null);
+        productos = normalizeProducts(prodData);
+        const provData = await apiFetch('/api/proveedores').catch(()=>null);
+        proveedores = Array.isArray(provData)?provData:(provData?.proveedores||[]);
+      } catch(e){}
+      // Renderizar formulario de pedido
+      let prodOptions = productos.map(p=>`<option value='${p.id||p._id}'>${p.Nombre_comercial||p.nombre||p.codigo||'Sin nombre'}</option>`).join('');
+      let provOptions = proveedores.map(p=>`<option value='${p.id||p._id}'>${p.nombre||p.name||'Sin nombre'}</option>`).join('');
+      let html = `<form id="formNuevoPedido">
+        <div class="form-group"><label>Proveedor/Laboratorio</label><select name="proveedor_id" required><option value="">Selecciona...</option>${provOptions}</select></div>
+        <div class="form-group"><label>Productos</label>
+          <div id="pedidoItems">
+            <div class="pedido-item-row">
+              <select name="producto_id[]" required>${prodOptions}</select>
+              <input type="number" name="cantidad[]" min="1" value="1" style="width:80px" required>
+              <button type="button" class="btn ghost btnAddItem">+</button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer"><button class="btn" type="submit">Enviar pedido</button><button class="btn ghost" type="button" id="cancelPo">Cancelar</button></div>
+      </form>`;
+      document.getElementById('nuevoPedidoBody').innerHTML = html;
+      document.getElementById('cancelPo').addEventListener('click', closeModal);
+      // Añadir funcionalidad para agregar más productos
+      document.querySelector('#pedidoItems').addEventListener('click', function(e){
+        if(e.target.classList.contains('btnAddItem')){
+          e.preventDefault();
+          const row = document.createElement('div');
+          row.className = 'pedido-item-row';
+          row.innerHTML = `<select name='producto_id[]' required>${prodOptions}</select> <input type='number' name='cantidad[]' min='1' value='1' style='width:80px' required> <button type='button' class='btn ghost btnRemoveItem'>-</button>`;
+          this.appendChild(row);
+        }
+        if(e.target.classList.contains('btnRemoveItem')){
+          e.preventDefault();
+          e.target.parentElement.remove();
+        }
+      });
+      // Enviar pedido
+      document.getElementById('formNuevoPedido').addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const proveedor_id = fd.get('proveedor_id');
+        const producto_ids = fd.getAll('producto_id[]');
+        const cantidades = fd.getAll('cantidad[]');
+        const items = producto_ids.map((id, i)=>({ producto_id: id, cantidad: parseInt(cantidades[i]) }));
+        const body = { proveedor_id, items };
+        try{
+          await apiFetch('/api/pedidos', { method:'POST', body: JSON.stringify(body) });
+          showAlertToMain('Pedido enviado','success');
+          closeModal();
+          await switchInventoryTab('pedidos');
+        }catch(err){
+          showAlertToMain('Error creando pedido','error');
+        }
+      });
+    }
   }
 
   async function loadInventoryReportes(){
@@ -1404,9 +1699,28 @@
 
   // small helpers for inventory actions
   function openKardexModal(productId){
-    openModal(`<div class="modal-header"><h3>Kardex - Producto ${productId}</h3><button class="modal-close" id="modalCloseBtn">×</button></div><div class="modal-body"><div class="card">Cargando kardex...</div></div>`);
+    openModal(`<div class="modal-header"><h3>Kardex - Producto ${productId}</h3><button class="modal-close" id="modalCloseBtn">×</button></div><div class="modal-body" id="kardexModalBody"><div class="card">Cargando kardex...</div></div>`);
     document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
-    // TODO: call /api/inventarios/:id/kardex and render movements
+    // Llamar a la API y renderizar movimientos
+    (async ()=>{
+      try {
+        const data = await apiFetch(`/api/inventarios/${productId}/kardex`).catch(()=>null);
+        const movimientos = Array.isArray(data) ? data : (data?.movimientos || []);
+        let html = '';
+        if (!movimientos || !movimientos.length) {
+          html = `<div class="card">No hay movimientos registrados para este producto.</div>`;
+        } else {
+          html = `<table class="table"><thead><tr><th>Fecha</th><th>Tipo</th><th>Detalle</th><th>Cantidad</th><th>Stock</th></tr></thead><tbody>`;
+          movimientos.forEach(mov => {
+            html += `<tr><td>${mov.fecha||''}</td><td>${mov.tipo||''}</td><td>${mov.detalle||''}</td><td>${mov.cantidad||''}</td><td>${mov.stock||''}</td></tr>`;
+          });
+          html += '</tbody></table>';
+        }
+        document.getElementById('kardexModalBody').innerHTML = html;
+      } catch(e) {
+        document.getElementById('kardexModalBody').innerHTML = `<div class="alert error">Error cargando kardex</div>`;
+      }
+    })();
   }
 
   function openLotesModal(productId){
@@ -1513,21 +1827,14 @@
       document.getElementById('btnCerrarDetalleFactura').addEventListener('click', closeModal);
     }catch(e){
       console.error('openFacturaDetalleModal error', e);
-      openModal(`<div class="modal-header"><h3>Error</h3></div><div class="modal-body"><div class="alert error">No se pudo cargar el detalle de la factura.</div></div><div class="modal-footer"><button class="btn ghost" onclick="closeModal()">Cerrar</button></div>`);
+      openModal(`<div class="modal-header"><h3>Error</h3></div><div class="modal-body"><div class="alert error">No se pudo cargar el detalle de la factura.</div></div><div class="modal-footer"><button class="btn ghost" id="btnCloseFacturaFallback">Cerrar</button></div>`);
+      try{ document.getElementById('btnCloseFacturaFallback')?.addEventListener('click', closeModal); }catch(_){ }
     }
   }
 
   function renderLogin(){
-    main.innerHTML = `<div class="page-header"><h2>Iniciar sesión</h2></div>`+
-      `<div class="card"><form id="loginForm"><div class="form-group"><label>Usuario</label><input name="username" required></div><div class="form-group"><label>Contraseña</label><input name="password" type="password" required></div><div class="actions"><button class="btn" type="submit">Entrar</button></div></form></div>`;
-    document.getElementById('loginForm').addEventListener('submit', async e=>{
-      e.preventDefault(); const f=e.target; try{
-        // send credentials; backend sets session cookie via flask-login
-        const res = await apiFetch('/api/login',{ method:'POST', body: JSON.stringify({ username: f.username.value, password: f.password.value, email: f.username.value }) });
-        if(res && res.user){ setUser(res.user.nombre || res.user.email || res.user.username || 'Usuario'); navigate('#/inicio'); showAlertToMain('Login OK','success'); }
-        else { showAlertToMain('Respuesta inválida','error'); }
-      }catch(err){ showAlertToMain('Error autenticando','error'); }
-    });
+    // Open the styled auth modal (keeps the page clean). The modal resolves when login succeeds.
+    (async ()=>{ try{ await openAuthModal(); navigate('#/inicio'); await render(); }catch(_){ /* ignore if user cancels */ } })();
   }
 
   // auth buttons
@@ -1539,19 +1846,60 @@
   // initialize (session-based: start as guest)
   // Authentication modal shown before app render
   async function openAuthModal(){
+    // Prep for demo prefill: prefer the 'vendedor' demo in local/dev/electron environments
+    const isLocalhost = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:'));
+    const isElectron = (typeof window !== 'undefined' && !!window.electronAPI && !!window.electronAPI.env && window.electronAPI.env.isElectron);
+    const demoPrefill = (isLocalhost || isElectron);
+    const DEMO_USERNAME = 'vendedor';
+    const DEMO_PASSWORD = 'Vendedor123!';
+
     return new Promise((resolve, reject)=>{
       const html = `
-        <div class="modal-header"><h3>Iniciar sesión</h3></div>
-        <div class="modal-body">
-          <form id="authForm">
-            <div class="form-group"><label>Usuario</label><input name="username" required></div>
-            <div class="form-group"><label>Contraseña</label><input name="password" type="password" required></div>
-            <div class="form-group"><label>Recordarme</label><input type="checkbox" name="remember"></div>
-            <div class="modal-footer"><button class="btn" type="submit">Entrar</button></div>
-          </form>
+        <div class="auth-modal">
+          <div class="auth-left">
+            <div class="brand-overlay">
+              <h1>InnovFarma</h1>
+              <p>Soluciones farmacéuticas confiables</p>
+            </div>
+          </div>
+          <div class="auth-right">
+            <div class="card">
+              <div class="tabs"><button id="tabSignIn" class="active">Ingresar</button></div>
+              <div id="authFormWrap">
+                <form id="authForm">
+                  <div class="form-group"><label>Usuario o email</label><input name="username" required value="${demoPrefill ? DEMO_USERNAME : ''}"></div>
+                  <div class="form-group"><label>Contraseña</label><input name="password" type="password" required value="${demoPrefill ? DEMO_PASSWORD : ''}"></div>
+                  ${demoPrefill ? `
+                  <div style="margin-top:10px;font-size:0.95rem;color:#334;">
+                    <div style="margin-bottom:6px"><strong>Credenciales demo (usa para probar):</strong></div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                      <div style="background:#f3f6f9;padding:8px;border-radius:8px;border:1px solid #e1e6ea">Vendedor: <code style="font-weight:700">vendedor</code> / <code>Vendedor123!</code></div>
+                      <div style="background:#f3f6f9;padding:8px;border-radius:8px;border:1px solid #e1e6ea">Admin: <code style="font-weight:700">admin</code> / <code>Admin123!</code></div>
+                      <button id="btnFillVendedor" type="button" class="btn small ghost" style="margin-left:6px">Usar vendedor</button>
+                      <button id="btnFillAdmin" type="button" class="btn small ghost">Usar admin</button>
+                      <button id="btnCopyCreds" type="button" class="btn small" title="Copiar vendedor al portapapeles">Copiar vendedor</button>
+                    </div>
+                  </div>` : ''}
+                  <div style="display:flex;align-items:center;gap:8px"><input type="checkbox" name="remember" id="rememberCheck"><label for="rememberCheck">Recordarme</label></div>
+                  <div class="submit-row"><button class="btn" type="submit">Entrar</button></div>
+                </form>
+              </div>
+            </div>
+          </div>
         </div>`;
       openModal(html);
-      const form = document.getElementById('authForm');
+        const form = document.getElementById('authForm');
+      // ensure demo prefill applies also (in case some environments rebuild without template values)
+      try{ if(demoPrefill && form){ form.querySelector('[name=username]').value = DEMO_USERNAME; form.querySelector('[name=password]').value = DEMO_PASSWORD; } }catch(_){ }
+      // wire demo helper buttons (fill/copy) when present
+      try{
+        const fillV = document.getElementById('btnFillVendedor');
+        const fillA = document.getElementById('btnFillAdmin');
+        const copyBtn = document.getElementById('btnCopyCreds');
+        if(fillV) fillV.addEventListener('click', ()=>{ try{ form.querySelector('[name=username]').value = DEMO_USERNAME; form.querySelector('[name=password]').value = DEMO_PASSWORD; }catch(_){ } });
+        if(fillA) fillA.addEventListener('click', ()=>{ try{ form.querySelector('[name=username]').value = 'admin'; form.querySelector('[name=password]').value = 'Admin123!'; }catch(_){ } });
+        if(copyBtn) copyBtn.addEventListener('click', async ()=>{ try{ await navigator.clipboard.writeText(`${DEMO_USERNAME}:${DEMO_PASSWORD}`); copyBtn.textContent = 'Copiado ✓'; setTimeout(()=>{ copyBtn.textContent = 'Copiar vendedor'; }, 1400); }catch(err){ console.warn('clipboard', err); alert('No se pudo copiar al portapapeles'); } });
+      }catch(_){ }
       form.addEventListener('submit', async (e)=>{
         e.preventDefault();
         const fd = new FormData(form);
@@ -1589,6 +1937,64 @@
           form.parentElement.insertBefore(errEl, form);
         }
       });
+
+      // Tab switching (Sign In / Sign Up)
+      const tSignIn = document.getElementById('tabSignIn');
+      const tSignUp = document.getElementById('tabSignUp');
+      tSignIn && tSignIn.addEventListener('click', ()=>{
+        if(tSignIn.classList.contains('active')) return;
+        tSignIn.classList.add('active'); tSignUp.classList.remove('active');
+        document.getElementById('authFormWrap').innerHTML = `
+          <form id="authForm">
+            <div class="form-group"><label>Usuario o email</label><input name="username" required value="${demoPrefill ? DEMO_USERNAME : ''}"></div>
+            <div class="form-group"><label>Contraseña</label><input name="password" type="password" required value="${demoPrefill ? DEMO_PASSWORD : ''}"></div>
+            ${demoPrefill ? `
+            <div style="margin-top:10px;font-size:0.95rem;color:#334;">
+              <div style="margin-bottom:6px"><strong>Credenciales demo (usa para probar):</strong></div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                <div style="background:#f3f6f9;padding:8px;border-radius:8px;border:1px solid #e1e6ea">Vendedor: <code style="font-weight:700">vendedor</code> / <code>Vendedor123!</code></div>
+                <div style="background:#f3f6f9;padding:8px;border-radius:8px;border:1px solid #e1e6ea">Admin: <code style="font-weight:700">admin</code> / <code>Admin123!</code></div>
+                <button id="btnFillVendedor" type="button" class="btn small ghost" style="margin-left:6px">Usar vendedor</button>
+                <button id="btnFillAdmin" type="button" class="btn small ghost">Usar admin</button>
+                <button id="btnCopyCreds" type="button" class="btn small" title="Copiar vendedor al portapapeles">Copiar vendedor</button>
+              </div>
+            </div>` : ''}
+            <div style="display:flex;align-items:center;gap:8px"><input type="checkbox" name="remember" id="rememberCheck2"><label for="rememberCheck2">Recordarme</label></div>
+            <div class="submit-row"><button class="btn" type="submit">Entrar</button></div>
+          </form>`;
+        // reattach submit handler
+        const form2 = document.getElementById('authForm');
+        // apply demo values again if needed
+        try{ if(demoPrefill && form2){ form2.querySelector('[name=username]').value = DEMO_USERNAME; form2.querySelector('[name=password]').value = DEMO_PASSWORD; } }catch(_){ }
+        form2.addEventListener('submit', async (e)=>{ e.preventDefault(); const fd=new FormData(form2); try{ const res = await apiFetch('/api/login',{ method:'POST', body: JSON.stringify({ username: fd.get('username'), password: fd.get('password'), email: fd.get('username'), remember: !!fd.get('remember') }) }); const user = res && res.user ? res.user : null; if(user){ closeModal(); setUser(user.nombre || user.email || user.username || 'Usuario'); const role = user.role || user.rol || user.roles || user.privilegio || user.privilegios || null; if(user && user.is_admin){ CURRENT_USER_ROLE = 'admin'; } else if(Array.isArray(role)){ CURRENT_USER_ROLE = role[0]; } else if(typeof role === 'string'){ CURRENT_USER_ROLE = role; } else { CURRENT_USER_ROLE = user && (user.role_name || null); } applyRolePermissions(CURRENT_USER_ROLE); try{ localStorage.setItem('current_user_role', CURRENT_USER_ROLE || ''); }catch(_){ } resolve(user); } else { const err = document.createElement('div'); err.className='alert error'; err.textContent='Usuario o contraseña incorrectos'; form2.parentElement.insertBefore(err, form2); } }catch(err){ console.error('Login error', err); const msg = err?.data?.error || err?.data || err?.message || JSON.stringify(err); const errEl = document.createElement('div'); errEl.className='alert error'; errEl.textContent = String(msg); form2.parentElement.insertBefore(errEl, form2); } });
+      });
+
+      tSignUp && tSignUp.addEventListener('click', ()=>{
+        if(tSignUp.classList.contains('active')) return;
+        tSignUp.classList.add('active'); tSignIn.classList.remove('active');
+        document.getElementById('authFormWrap').innerHTML = `
+          <form id="registerForm">
+            <div class="form-group"><label>Nombre completo</label><input name="nombre" required></div>
+            <div class="form-group"><label>Email</label><input name="email" type="email" required></div>
+            <div class="form-group"><label>Contraseña</label><input name="password" type="password" required></div>
+            <div class="submit-row"><button class="btn" type="submit">Crear cuenta</button></div>
+          </form>`;
+        const reg = document.getElementById('registerForm');
+        reg.addEventListener('submit', async (e)=>{
+          e.preventDefault(); const fd = new FormData(reg); try{ const payload = { nombre: fd.get('nombre'), email: fd.get('email'), username: fd.get('email'), password: fd.get('password'), rol: 'vendedor' }; await apiFetch('/api/usuarios', { method:'POST', body: JSON.stringify(payload) }); // auto-switch to sign-in after success
+            tSignUp.classList.remove('active'); tSignIn.classList.add('active');
+            document.getElementById('authFormWrap').innerHTML = `<form id="authForm"><div class="form-group"><label>Usuario o email</label><input name="username" value="${fd.get('email') || ''}" required></div><div class="form-group"><label>Contraseña</label><input name="password" type="password" required></div><div class="submit-row"><button class="btn" type="submit">Entrar</button></div></form>`;
+            const newForm = document.getElementById('authForm');
+            newForm.addEventListener('submit', async (e)=>{ e.preventDefault(); const fd2=new FormData(newForm); try{ const res = await apiFetch('/api/login',{ method:'POST', body: JSON.stringify({ username: fd2.get('username'), password: fd2.get('password'), email: fd2.get('username') }) }); if(res && res.user){ closeModal(); setUser(res.user.nombre || res.user.email || res.user.username || 'Usuario'); resolve(res.user); } }catch(err){ console.error('login after signup', err); } });
+          }catch(err){ console.error('register error', err); const msg = err?.data?.error || err?.data || err?.message || JSON.stringify(err); const errEl = document.createElement('div'); errEl.className='alert error'; errEl.textContent = String(msg); reg.parentElement.insertBefore(errEl, reg); }
+        });
+      });
+      // Default to Sign Up view so users first see the registration form (match mockup)
+      try{
+        if(tSignUp && !tSignUp.classList.contains('active')){
+          tSignUp.click();
+        }
+      }catch(_){ }
     });
   }
 

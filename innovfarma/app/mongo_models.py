@@ -3,7 +3,7 @@ from typing import cast
 from pymongo.database import Database
 from pymongo import ReturnDocument
 from werkzeug.security import generate_password_hash, check_password_hash
-from bson.objectid import ObjectId
+from bson import ObjectId
 from datetime import datetime
 
 # Collections: usuarios, productos, facturas, clientes, detalle_factura
@@ -629,7 +629,7 @@ def filter_advanced(marca_id=None, categoria_id=None, subcategoria_id=None, form
 
 def get_product(product_id):
     try:
-        from bson.objectid import ObjectId
+        from bson import ObjectId
         db = get_db()
         if db is None:
             return None
@@ -710,7 +710,7 @@ def create_product(codigo, Nombre_comercial, Nombre_generico=None, Precio_venta=
 
 def update_product(product_id, **kwargs):
     try:
-        from bson.objectid import ObjectId
+        from bson import ObjectId
         oid = ObjectId(product_id)
         db = get_db()
         if db is None:
@@ -727,7 +727,7 @@ def update_product(product_id, **kwargs):
 
 def delete_product(product_id):
     try:
-        from bson.objectid import ObjectId
+        from bson import ObjectId
         oid = ObjectId(product_id)
         db = get_db()
         if db is None:
@@ -783,7 +783,7 @@ def search_cliente_by_nit(nit):
 
 def update_cliente(cliente_id, **kwargs):
     try:
-        from bson.objectid import ObjectId
+        from bson import ObjectId
         oid = ObjectId(cliente_id)
         db = get_db()
         if db is None:

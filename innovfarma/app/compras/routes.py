@@ -29,8 +29,7 @@ def create_compra():
     total = data.get('total', 0)
     fecha = data.get('fecha')
 
-    if not proveedor_id:
-        return jsonify({'error': 'proveedor_id requerido'}), 400
+    # proveedor_id es opcional: permitimos compras sin proveedor
     if not isinstance(items, list) or not items:
         return jsonify({'error': 'items (lista) requerida'}), 400
 
@@ -51,7 +50,8 @@ def create_compra():
         fecha_norm = parsed.isoformat() if parsed else str(fecha)
 
     compra = {
-        'proveedor_id': proveedor_id,
+        # solo incluir proveedor_id si fue provisto
+        **({'proveedor_id': proveedor_id} if proveedor_id else {}),
         'items': items,
         'total': float(total) if total is not None else 0.0,
         'fecha': fecha_norm,
@@ -62,6 +62,19 @@ def create_compra():
         if hasattr(mongo_models, 'get_next_sequence'):
             compra['numero'] = mongo_models.get_next_sequence('compras')
     except Exception:
+        pass
+
+    # si no envían total intentamos calcularlo si se enviaron precios unitarios
+    try:
+        if (not compra.get('total') or float(compra.get('total') or 0) == 0) and isinstance(items, list):
+            computed = 0.0
+            for it in items:
+                q = float(it.get('cantidad') or 0)
+                pu = float(it.get('precio_unitario') or it.get('precio') or 0)
+                computed += q * pu
+            compra['total'] = float(computed)
+    except Exception:
+        # ignore and keep provided total
         pass
 
     res = db.compras.insert_one(compra)
@@ -76,7 +89,7 @@ def create_compra():
                 continue
             # intentar ObjectId primero
             try:
-                from bson.objectid import ObjectId
+                from bson import ObjectId
                 oid = ObjectId(prod_id)
                 db.productos.update_one({'_id': oid}, {'$inc': {'existencia': qty}})
             except Exception:
@@ -87,7 +100,7 @@ def create_compra():
 
     # devolver documento creado
     try:
-        from bson.objectid import ObjectId
+        from bson import ObjectId
         doc = db.compras.find_one({'_id': ObjectId(compra_id)})
     except Exception:
         doc = db.compras.find_one({'id': compra_id})
@@ -190,7 +203,7 @@ def get_cuenta_pagar(cuenta_id):
     if db is None:
         return jsonify({'error': 'MongoDB no inicializado'}), 500
     try:
-        from bson.objectid import ObjectId
+        from bson import ObjectId
         doc = db.cuentas_pagar.find_one({'_id': ObjectId(cuenta_id)})
     except Exception:
         doc = db.cuentas_pagar.find_one({'id': cuenta_id})
@@ -223,7 +236,7 @@ def pagar_cuenta(cuenta_id):
         return jsonify({'error': 'MongoDB no inicializado'}), 500
 
     try:
-        from bson.objectid import ObjectId
+        from bson import ObjectId
         oid = ObjectId(cuenta_id)
         cuenta = db.cuentas_pagar.find_one({'_id': oid})
     except Exception:
@@ -248,7 +261,7 @@ def pagar_cuenta(cuenta_id):
 
     # recuperar cuenta actualizada
     try:
-        from bson.objectid import ObjectId
+        from bson import ObjectId
         doc = db.cuentas_pagar.find_one({'_id': ObjectId(cuenta_id)})
     except Exception:
         doc = db.cuentas_pagar.find_one({'id': cuenta_id})

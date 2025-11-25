@@ -1,6 +1,6 @@
 from .mongo_client import mongo
 from werkzeug.security import generate_password_hash, check_password_hash
-from bson.objectid import ObjectId
+from bson import ObjectId
 
 # Collections: usuarios, productos, facturas, clientes, detalle_factura
 

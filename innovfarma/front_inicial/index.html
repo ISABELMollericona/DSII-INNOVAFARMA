@@ -1,18 +1,22 @@
 <!doctype html>
 <html lang="es">
 <head>
+  <base href="./">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>InnovFarma - Front Inicial</title>
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="styles.css">
   <!-- Font Awesome para iconos del menú -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- Tailwind compiled CSS -->
-  <link rel="stylesheet" href="/dist/tailwind.css">
+  <link rel="stylesheet" href="dist/tailwind.css">
+  <!-- Custom theme overrides (flat, modern style) -->
+  <link rel="stylesheet" href="custom_theme.css">
   <!-- Fallback CSS: asegura comportamiento del sidebar y separador visual si Tailwind no carga -->
   <style>
-    /* Por defecto: sidebar en flujo (relative) para evitar huecos inesperados */
-    .sidebar { position: relative; }
+     /* Mantener la sidebar fija en escritorio (evita duplicar el margen y crear huecos)
+       en pantallas pequeñas seguirá comportándose como off-canvas/hidden y se mostrará
+       mediante la clase `hidden`/overlay. */
     /* En pantallas pequeñas forzamos fixed para overlay */
     @media (max-width: 1023px) {
       .sidebar { position: fixed; left: 0; top: 0; bottom: 0; z-index: 40; }
@@ -50,7 +54,7 @@
       </div>
     </header>
     <div class="layout flex">
-      <aside class="sidebar hidden lg:block fixed lg:relative inset-y-0 left-0 w-64 z-40 overflow-auto" id="leftMenu">
+      <aside class="sidebar lg:block fixed inset-y-0 left-0 w-64 z-40 overflow-auto" id="leftMenu">
         <div class="sidebar-header">
           <h3 class="text-lg font-semibold">Módulos</h3>
         </div>
@@ -67,8 +71,7 @@
                 <li><a class="nav-link" href="#/inventarios/lotes" data-route="/inventarios/lotes">Lotes / Caducidades</a></li>
                 <!-- Traspasos eliminado: funcionalidad deshabilitada -->
                 <li><a class="nav-link" href="#/inventarios/pedidos" data-route="/inventarios/pedidos">Pedidos</a></li>
-                <li><a class="nav-link" href="#/inventarios/reportes" data-route="#/inventarios/reportes">Reportes</a></li>
-                <li><a class="nav-link" href="#/inventarios/alertas" data-route="/inventarios/alertas">Alertas</a></li>
+                
               </ul>
             </li>
             <li><a class="nav-link" href="#/compras" data-route="/compras" id="nav-compras" data-roles="admin"><i class="fa-solid fa-truck-field icon"></i><span>Compras</span></a></li>
@@ -77,7 +80,7 @@
           </ul>
         </nav>
       </aside>
-  <div id="sidebarOverlay" class="sidebar-overlay hidden fixed inset-0 bg-black/20 z-30 lg:hidden" tabindex="-1"></div>
+  <div id="sidebarOverlay" class="sidebar-overlay fixed inset-0 bg-black/20 z-30 lg:hidden" tabindex="-1"></div>
       <main class="content flex-1 p-6" id="mainContent">
         <div id="pageContent" class="max-w-7xl mx-auto">
           <h2 class="text-3xl font-semibold mb-4">Bienvenido</h2>
@@ -92,12 +95,27 @@
   <!-- Modal root: aquí se montarán los modales dinámicos -->
   <div id="modalRoot" class="modal-root" aria-hidden="true"></div>
 
-  <script src="/app.js"></script>
+  <script>
+    // Carga segura de app.js: elimina accidentalmente fences de Markdown si existen
+    (async function(){
+      try{
+        const res = await fetch('app.js');
+        let txt = await res.text();
+        // eliminar fence inicial ```javascript y cierre ```, si existen
+        txt = txt.replace(/^\s*```javascript\s*/, '');
+        txt = txt.replace(/\s*```\s*$/, '');
+        const s = document.createElement('script');
+        s.type = 'text/javascript';
+        s.text = txt;
+        document.body.appendChild(s);
+      }catch(e){ console.error('Error cargando app.js limpiado', e); }
+    })();
+  </script>
   <script>
     // Verifica si el CSS compilado está accesible en el servidor; si no, inyecta Tailwind CDN como fallback
     (async function(){
       try{
-        const res = await fetch('/dist/tailwind.css', { method: 'HEAD' });
+        const res = await fetch('dist/tailwind.css', { method: 'HEAD' });
         if(!res.ok){
           console.warn('CSS compilado no disponible, cargando Tailwind CDN como fallback');
           const s = document.createElement('script');
@@ -115,19 +133,6 @@
       }
     })();
   </script>
-  <script>
-    // Sidebar toggle for mobile
-    (function(){
-      const btn = document.getElementById('btnMenuToggle');
-      const sidebar = document.getElementById('leftMenu');
-      const overlay = document.getElementById('sidebarOverlay');
-      function showSidebar(){ sidebar.classList.remove('hidden'); overlay.classList.remove('hidden'); }
-      function hideSidebar(){ sidebar.classList.add('hidden'); overlay.classList.add('hidden'); }
-      if(btn){ btn.addEventListener('click', ()=>{ if(sidebar.classList.contains('hidden')) showSidebar(); else hideSidebar(); }); }
-      if(overlay){ overlay.addEventListener('click', hideSidebar); }
-      // Close sidebar on resize to large screens handled by CSS (lg:block)
-      window.addEventListener('resize', ()=>{ if(window.innerWidth >= 1024){ sidebar.classList.remove('hidden'); overlay.classList.add('hidden'); } else { sidebar.classList.add('hidden'); } });
-    })();
-  </script>
+  <!-- menu toggling behaviour handled by app.js to ensure consistent state and aria attributes -->
 </body>
 </html>

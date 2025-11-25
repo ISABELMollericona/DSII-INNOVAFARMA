@@ -16,7 +16,7 @@ import random
 import os
 import argparse
 from pymongo import MongoClient
-from bson.objectid import ObjectId
+from bson import ObjectId
 
 
 SEED_TAG = 'seed_farmacia_v1'

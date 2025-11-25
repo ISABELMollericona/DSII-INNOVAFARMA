@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Simple, license-free SVG illustration: doctora farmacéutica estilizada -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600">
+  <defs>
+    <linearGradient id="g1" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#6dd3ff"/>
+      <stop offset="1" stop-color="#9a6bff"/>
+    </linearGradient>
+  </defs>
+  <rect width="100%" height="100%" rx="40" fill="url(#g1)" />
+  <!-- face -->
+  <ellipse cx="300" cy="230" rx="72" ry="88" fill="#ffe0cc" />
+  <!-- hair -->
+  <path d="M230 170c18-30 40-46 80-46s66 16 86 46v34c-36-30-86-30-126 0z" fill="#2b2f77" />
+  <!-- mask -->
+  <rect x="236" y="250" width="128" height="48" rx="14" fill="#fff" opacity="0.95" />
+  <path d="M236 254c6 10 24 16 48 16s42-6 48-16" fill="#dfefff" />
+  <!-- stethoscope -->
+  <path d="M170 330c20-30 40-50 68-58" stroke="#222" stroke-width="6" stroke-linecap="round" fill="none" opacity="0.8" />
+  <path d="M420 330c-20-30-40-50-68-58" stroke="#222" stroke-width="6" stroke-linecap="round" fill="none" opacity="0.8" />
+  <circle cx="300" cy="400" r="16" fill="#222" />
+  <!-- scrubs body -->
+  <path d="M180 320c40 60 260 60 260 0v100c0 20-16 36-36 36H216c-20 0-36-16-36-36z" fill="#1976d2" opacity="0.95"/>
+  <rect x="230" y="360" width="140" height="80" rx="10" fill="#0e5aa7" opacity="0.9"/>
+  <!-- pocket -->
+  <rect x="320" y="370" width="28" height="34" rx="4" fill="#fff" opacity="0.6"/>
+  <!-- subtle decorative shapes -->
+  <g fill="#ffffff" opacity="0.08">
+    <circle cx="480" cy="120" r="44" />
+    <circle cx="520" cy="480" r="34" />
+    <circle cx="420" cy="80" r="20" />
+  </g>
+</svg>

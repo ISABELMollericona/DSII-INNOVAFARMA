@@ -1,6 +1,6 @@
 # Funciones helper para clientes en MongoDB
 from ..mongo_client import mongo
-from bson.objectid import ObjectId
+from bson import ObjectId
 
 def create_cliente(nombre, ci, direccion='', telefono=''):
     if mongo is None or mongo.db is None:

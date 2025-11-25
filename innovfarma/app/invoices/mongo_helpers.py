@@ -1,6 +1,6 @@
 # Funciones helper para invoices/facturas en MongoDB
 from ..mongo_client import mongo
-from bson.objectid import ObjectId
+from bson import ObjectId
 from datetime import datetime
 
 def _get_db():
