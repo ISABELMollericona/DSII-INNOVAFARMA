@@ -49,6 +49,17 @@ DATABASE_URL=mysql://...           # (opcional, no usado si usas Mongo)
 MONGO_URI=mongodb+srv://rmq23:rmq71832695@cluster0.cju1e.mongodb.net/innovfarma?retryWrites=true&w=majority
 FLASK_ENV=development
 SECRET_KEY=change-me-in-production
+
+### Variable opcional: FRONTEND_DEMO_PREFILL
+
+Puedes forzar que el frontend muestre las credenciales demo (útil en QA) añadiendo en `.env`:
+
+```
+FRONTEND_DEMO_PREFILL=True
+```
+
+En despliegues en Render (u otro proveedor) es preferible añadir la variable como Environment Variable
+en la configuración del servicio (`FRONTEND_DEMO_PREFILL=true`) en lugar de tocar archivos `env` dentro del repositorio.
 ```
 
 ### 3. Ejecutar la app

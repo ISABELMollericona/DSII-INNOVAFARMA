@@ -34,6 +34,11 @@ if __name__ == '__main__':
             print(f"🔒 SESSION_COOKIE_SECURE: {app.config.get('SESSION_COOKIE_SECURE')}")
         except Exception:
             pass
+        # Mostrar valor de FRONTEND_DEMO_PREFILL para debugging (útil en despliegues)
+        try:
+            print(f"⚙️ FRONTEND_DEMO_PREFILL: {app.config.get('FRONTEND_DEMO_PREFILL', False)}")
+        except Exception:
+            pass
         print("="*70)
         print("Endpoints disponibles:")
         print("  • GET        / - Estado de la API")

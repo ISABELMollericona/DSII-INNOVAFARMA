@@ -21,6 +21,8 @@ services:
         value: ${MONGO_URI}
       - key: FRONTEND_URL
         value: ${FRONTEND_URL}
+      - key: FRONTEND_DEMO_PREFILL
+        value: ${FRONTEND_DEMO_PREFILL}
 
   - type: static
     name: innovfarma-frontend

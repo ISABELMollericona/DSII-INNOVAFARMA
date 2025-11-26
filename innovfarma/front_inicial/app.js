@@ -1868,7 +1868,13 @@
       const cfg = await apiFetch('/api/frontend-config').catch(()=>null);
       if(cfg && (cfg.demo_prefill === true || cfg.demo_prefill === 'true')) serverDemoPrefill = true;
     }catch(_){ /* ignore */ }
-    const demoPrefill = (isLocalhost || isElectron || serverDemoPrefill);
+    // Extra overrides: URL query (?demo=true) or localStorage 'force_demo_prefill' allow
+    // forcing the demo UI in any environment (useful for debugging / QA).
+    let queryDemo = false, localStorageDemo = false;
+    try{ queryDemo = (new URLSearchParams(window.location.search).get('demo') === 'true'); }catch(_){ }
+    try{ localStorageDemo = (localStorage && String(localStorage.getItem('force_demo_prefill')) === 'true'); }catch(_){ }
+
+    const demoPrefill = (isLocalhost || isElectron || serverDemoPrefill || queryDemo || localStorageDemo);
     const DEMO_USERNAME = 'vendedor';
     const DEMO_PASSWORD = 'Vendedor123!';
 
@@ -1882,6 +1888,7 @@
             </div>
           </div>
           <div class="auth-right">
+            ${demoPrefill ? `<div style="padding:10px;border-radius:8px;background:linear-gradient(90deg,#fff7ed,#fffbe6);border:1px solid #fde3b7;margin-bottom:12px;color:#92400e;font-weight:700;display:flex;align-items:center;gap:10px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 9v4" stroke="#92400e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 17h.01" stroke="#92400e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z" stroke="#92400e" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg> Modo demo activado — credenciales demo disponibles en este entorno</div>` : ''}
             <div class="card">
               <div class="tabs"><button id="tabSignIn" class="active">Ingresar</button></div>
               <div id="authFormWrap">
