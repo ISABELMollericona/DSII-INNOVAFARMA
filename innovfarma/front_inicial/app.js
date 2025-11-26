@@ -1847,9 +1847,28 @@
   // Authentication modal shown before app render
   async function openAuthModal(){
     // Prep for demo prefill: prefer the 'vendedor' demo in local/dev/electron environments
-    const isLocalhost = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:'));
+    // Treat common private/local addresses as 'local' so 192.168.x.x or 10.x.x.x also behave like localhost.
+    const isLocalhost = (function(){
+      try{
+        if(typeof window === 'undefined') return false;
+        const host = String(window.location.hostname || '');
+        // file protocol
+        if(window.location.protocol === 'file:') return true;
+        // explicit names
+        if(host === 'localhost' || host === '127.0.0.1' || host === '::1') return true;
+        // private IPv4 ranges: 10.*, 192.168.*, 172.16-31.*
+        if(/^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(host)) return true;
+        return false;
+      }catch(_){ return false; }
+    })();
     const isElectron = (typeof window !== 'undefined' && !!window.electronAPI && !!window.electronAPI.env && window.electronAPI.env.isElectron);
-    const demoPrefill = (isLocalhost || isElectron);
+    // Allow server to explicitly enable demo prefill via /api/frontend-config
+    let serverDemoPrefill = false;
+    try{
+      const cfg = await apiFetch('/api/frontend-config').catch(()=>null);
+      if(cfg && (cfg.demo_prefill === true || cfg.demo_prefill === 'true')) serverDemoPrefill = true;
+    }catch(_){ /* ignore */ }
+    const demoPrefill = (isLocalhost || isElectron || serverDemoPrefill);
     const DEMO_USERNAME = 'vendedor';
     const DEMO_PASSWORD = 'Vendedor123!';
 

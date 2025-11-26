@@ -110,4 +110,12 @@ def create_app(config_object='innovfarma.config.Config'):
         user = User.query.get(user_id)
         return user
 
+    # Small JSON endpoint to expose a minimal frontend configuration that the
+    # single-page app can fetch to determine certain debug/developer flags.
+    # Example: toggle demo-prefill without relying on hostname heuristics.
+    @app.route('/api/frontend-config')
+    def frontend_config():
+        # Only expose the flag value; keep payload minimal and safe for public access
+        return { 'demo_prefill': bool(app.config.get('FRONTEND_DEMO_PREFILL', False)) }, 200
+
     return app

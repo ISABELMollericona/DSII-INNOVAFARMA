@@ -20,3 +20,8 @@ class Config:
     # In development you may want Secure=False; set to 'True' to enable
     SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', 'False').lower() in ('1', 'true', 'yes')
 
+    # Frontend behavior (toggle demo prefill in auth modal).
+    # Use environment variable FRONTEND_DEMO_PREFILL to explicitly enable demo prefill
+    # (e.g. for local dev or CI). Defaults to False in production.
+    FRONTEND_DEMO_PREFILL = os.environ.get('FRONTEND_DEMO_PREFILL', 'False').lower() in ('1', 'true', 'yes')
+

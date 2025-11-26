@@ -36,7 +36,7 @@ if __name__ == '__main__':
             pass
         print("="*70)
         print("Endpoints disponibles:")
-        print("  • GET  / - Estado de la API")
+        print("  • GET        / - Estado de la API")
         print("  • POST /api/login - Iniciar sesión")
         print("  • GET  /api/products - Lista de productos")
         print("  • GET  /api/invoices - Lista de facturas")
