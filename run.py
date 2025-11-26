@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 # Import directo desde el paquete `innovfarma` — esto elimina advertencias
 # estáticas en el editor (Pylance) y funciona cuando ejecutas desde la raíz.
 from innovfarma.app import create_app, db
+import logging
 
 # Cargar variables de entorno (archivo .env en la raíz del repo)
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -49,4 +50,28 @@ if __name__ == '__main__':
         print("="*70)
         print("Presiona CTRL+C para detener el servidor\n")
     
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # Use $PORT when provided by the host (Render sets $PORT) and
+    # enable debug only when FLASK_ENV != 'production'. This keeps
+    # the behavior consistent when Render runs `python run.py`.
+    # configure basic logging (so logs are consistent in Render)
+    log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
+    logging.basicConfig(level=log_level, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
+    logger = logging.getLogger('run')
+
+    port = int(os.environ.get('PORT', 5000))
+    debug_mode = os.environ.get('FLASK_ENV', 'development') != 'production'
+    logger.info(f"Starting server on 0.0.0.0:{port} (debug={debug_mode})")
+
+    if not debug_mode:
+        # In production use a real WSGI server. Try waitress first (pure-Python WSGI server)
+        try:
+            from waitress import serve
+            threads = int(os.environ.get('WAITRESS_THREADS', '4'))
+            logger.info('Running with waitress WSGI server (threads=%s)', threads)
+            serve(app, host='0.0.0.0', port=port, threads=threads)
+        except Exception as e:
+            logger.warning('waitress unavailable or failed (%s) — falling back to built-in server', e)
+            app.run(host='0.0.0.0', port=port, debug=False)
+    else:
+        # Development / debug: run Flask's built-in server (with reloader)
+        app.run(host='0.0.0.0', port=port, debug=True)

@@ -1885,6 +1885,9 @@
             <div class="brand-overlay">
               <h1>InnovFarma</h1>
               <p>Soluciones farmacéuticas confiables</p>
+              <br><br>
+              <p> para demo usuario admin = <code>admin</code> / <code>Admin123!</code></p>
+              <p> para demo usuario vendedor = <code>vendedor</code> / <code>Vendedor123!</code></p>
             </div>
           </div>
           <div class="auth-right">

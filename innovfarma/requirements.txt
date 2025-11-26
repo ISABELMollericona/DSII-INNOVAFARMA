@@ -7,3 +7,4 @@ Flask-Cors>=3.0
 mysqlclient>=2.1
 Flask-PyMongo>=2.3
 pymongo>=4.3
+waitress>=2.1
